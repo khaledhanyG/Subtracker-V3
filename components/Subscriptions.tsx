@@ -423,16 +423,41 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
 
   // --- Refund Submit ---
   const handleRefundSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onRecordRefund(refundForm.subscriptionId, refundForm.walletId, parseFloat(refundForm.amount), refundForm.date);
-    setRefundForm({
-      subscriptionId: '',
-      walletId: '',
-      amount: '',
-      date: new Date().toISOString().split('T')[0],
-    });
-    setViewMode('HISTORY');
-  };
+  e.preventDefault();
+
+  const amountVal = parseFloat(refundForm.amount);
+
+  // نجيب أسماء الخدمة والـ Wallet علشان نسجلهم في الشيت
+  const sub = state.subscriptions.find(s => s.id === refundForm.subscriptionId);
+  const wallet = state.wallets.find(w => w.id === refundForm.walletId);
+
+  // 👈 إرسال الريفاند لجوجل شيت
+  sendToGoogleSheet({
+    action: 'ADD_REFUND',
+    subscriptionName: sub?.name || '',
+    walletName: wallet?.name || '',
+    amount: amountVal,
+    date: refundForm.date,
+  });
+
+  // 👈 تسجيل الريفاند جوه أبلكيشن SubTrack نفسه
+  onRecordRefund(
+    refundForm.subscriptionId,
+    refundForm.walletId,
+    amountVal,
+    refundForm.date
+  );
+
+  // reset form
+  setRefundForm({
+    subscriptionId: '',
+    walletId: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+  });
+  setViewMode('HISTORY');
+};
+
 
   const getWalletName = (id?: string) => {
     const w = state.wallets.find((w) => w.id === id);
