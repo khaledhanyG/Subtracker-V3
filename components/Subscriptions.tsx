@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, Subscription, WalletType, BillingCycle, AllocationType, DepartmentSplit, AccountSplit, TransactionType, EntityStatus, Transaction } from '../types';
 import { Plus, AlertTriangle, Search, Trash2, Receipt, Users, ArrowRight, History, Edit2, StickyNote, CreditCard, Save, X, FileText, Undo2, Coins } from 'lucide-react';
+const GOOGLE_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbyE7SFpyJM4LArPkDPrmWxQRSJxl_ZOInozKwILszZalBao7-2bTQ4cff_4UIegDjEodA/exec";
+
 
 interface SubscriptionsProps {
   state: AppState;
@@ -317,24 +320,64 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
   };
 
   // --- Payment Submit ---
-  const handlePaymentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const baseVal = parseFloat(payForm.amount);
-    const vatVal = payForm.isTaxable ? parseFloat(payForm.vatAmount) : 0;
-    const totalVal = baseVal + vatVal;
+const handlePaymentSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  const baseVal = parseFloat(payForm.amount);
+  const vatVal = payForm.isTaxable ? parseFloat(payForm.vatAmount) : 0;
+  const totalVal = baseVal + vatVal;
 
-    const wallet = state.wallets.find(w => w.id === payForm.walletId);
+  const wallet = state.wallets.find(w => w.id === payForm.walletId);
     
-    // Check for insufficient funds
-    if (wallet && wallet.balance < totalVal) {
-       alert(`Transaction Failed: Insufficient funds in "${wallet.name}".\n\nAvailable Balance: ${wallet.balance.toLocaleString()} SAR\nRequired Amount: ${totalVal.toLocaleString()} SAR\n\nPlease transfer funds to this card before proceeding.`);
-       return;
-    }
+  // Check for insufficient funds
+  if (wallet && wallet.balance < totalVal) {
+     alert(`Transaction Failed: Insufficient funds in "${wallet.name}".\n\nAvailable Balance: ${wallet.balance.toLocaleString()} SAR\nRequired Amount: ${totalVal.toLocaleString()} SAR\n\nPlease transfer funds to this card before proceeding.`);
+     return;
+  }
 
-    onRecordPayment(payForm.subscriptionId, payForm.walletId, totalVal, payForm.date, payForm.nextRenewalDate, vatVal > 0 ? vatVal : undefined);
-    setPayForm({ ...payForm, subscriptionId: '', walletId: '', amount: '', nextRenewalDate: '', isTaxable: false, vatAmount: '' });
-    setViewMode('HISTORY');
-  };
+  // 🔴 هنا بنبعت على Google Sheets
+  try {
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "PAYMENT",
+        subscriptionId: payForm.subscriptionId,
+        subscriptionName: getSubscriptionName(payForm.subscriptionId),
+        walletId: payForm.walletId,
+        walletName: getWalletName(payForm.walletId),
+        baseAmount: baseVal,
+        vatAmount: vatVal,
+        totalAmount: totalVal,
+        date: payForm.date,
+        nextRenewalDate: payForm.nextRenewalDate,
+      }),
+    });
+  } catch (err) {
+    console.error("Failed to sync payment to Google Sheets", err);
+  }
+
+  // الكود القديم زي ما هو
+  onRecordPayment(
+    payForm.subscriptionId,
+    payForm.walletId,
+    totalVal,
+    payForm.date,
+    payForm.nextRenewalDate,
+    vatVal > 0 ? vatVal : undefined
+  );
+
+  setPayForm({
+    ...payForm,
+    subscriptionId: "",
+    walletId: "",
+    amount: "",
+    nextRenewalDate: "",
+    isTaxable: false,
+    vatAmount: "",
+  });
+  setViewMode("HISTORY");
+};
+
 
   const onSelectSubscriptionForPayment = (subId: string) => {
     const sub = state.subscriptions.find(s => s.id === subId);
@@ -364,12 +407,46 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
   };
 
   // --- Refund Submit ---
-  const handleRefundSubmit = (e: React.FormEvent) => {
-     e.preventDefault();
-     onRecordRefund(refundForm.subscriptionId, refundForm.walletId, parseFloat(refundForm.amount), refundForm.date);
-     setRefundForm({ subscriptionId: '', walletId: '', amount: '', date: new Date().toISOString().split('T')[0] });
-     setViewMode('HISTORY');
-  };
+const handleRefundSubmit = async (e: React.FormEvent) => {
+   e.preventDefault();
+
+   const amountVal = parseFloat(refundForm.amount);
+
+   // 🔴 بعت الريفاند على جوجل شيت
+   try {
+     await fetch(GOOGLE_SCRIPT_URL, {
+       method: "POST",
+       headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({
+         type: "REFUND",
+         subscriptionId: refundForm.subscriptionId,
+         subscriptionName: getSubscriptionName(refundForm.subscriptionId),
+         walletId: refundForm.walletId,
+         walletName: getWalletName(refundForm.walletId),
+         amount: amountVal,
+         date: refundForm.date,
+       }),
+     });
+   } catch (err) {
+     console.error("Failed to sync refund to Google Sheets", err);
+   }
+
+   // الكود القديم زي ما هو
+   onRecordRefund(
+     refundForm.subscriptionId,
+     refundForm.walletId,
+     amountVal,
+     refundForm.date
+   );
+   setRefundForm({
+     subscriptionId: "",
+     walletId: "",
+     amount: "",
+     date: new Date().toISOString().split("T")[0],
+   });
+   setViewMode("HISTORY");
+};
+
 
 
   const getWalletName = (id?: string) => {
