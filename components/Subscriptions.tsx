@@ -1,52 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-  AppState,
-  Subscription,
-  WalletType,
-  BillingCycle,
-  AllocationType,
-  DepartmentSplit,
-  AccountSplit,
-  TransactionType,
-  EntityStatus,
-  Transaction,
-} from '../types';
-import {
-  Plus,
-  AlertTriangle,
-  Search,
-  Trash2,
-  Receipt,
-  Users,
-  ArrowRight,
-  History,
-  Edit2,
-  StickyNote,
-  CreditCard,
-  Save,
-  X,
-  FileText,
-  Undo2,
-  Coins,
-} from 'lucide-react';
-
-// ===================== Google Sheets Logging =====================
-const GOOGLE_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbw8grU2D5aqxAUZ9Cvq4pTU0XM5hfplRt0cWonNyjA8x1z8UQohh7J4BmUPJiyQCRfDEw/exec';
-
-const logToSheet = async (payload: any) => {
-  try {
-    await fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload),
-    });
-  } catch (error) {
-    console.error('Failed to log to Google Sheets:', error);
-  }
-};
-// =================================================================
+import { AppState, Subscription, WalletType, BillingCycle, AllocationType, DepartmentSplit, AccountSplit, TransactionType, EntityStatus, Transaction } from '../types';
+import { Plus, AlertTriangle, Search, Trash2, Receipt, Users, ArrowRight, History, Edit2, StickyNote, CreditCard, Save, X, FileText, Undo2, Coins } from 'lucide-react';
 
 interface SubscriptionsProps {
   state: AppState;
@@ -65,6 +19,29 @@ interface SubscriptionsProps {
   onDeleteTransaction: (id: string) => void;
   onRecordRefund: (subscriptionId: string, walletId: string, amount: number, date: string) => void;
 }
+
+// ************* GOOGLE SHEETS INTEGRATION *************
+const GOOGLE_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbw8grU2D5aqxAUZ9Cvq4pTU0XM5hfplRt0cWonNyjA8x1z8UQohh7J4BmUPJiyQCRfDEw/exec';
+
+const sendToGoogleSheet = (payload: any) => {
+  if (!GOOGLE_SCRIPT_URL) return;
+
+  try {
+    // no-cors عشان CORS
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    console.error('Failed to send to Google Sheet', err);
+  }
+};
+// ********************************************************
 
 export const Subscriptions: React.FC<SubscriptionsProps> = ({
   state,
@@ -147,7 +124,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
   const [payForm, setPayForm] = useState({
     subscriptionId: '',
     walletId: '',
-    amount: '', // This acts as Base Amount if taxable
+    amount: '', // Base Amount لو الفاتورة خاضعة للضريبة
     date: new Date().toISOString().split('T')[0],
     nextRenewalDate: '',
     isTaxable: false,
@@ -222,8 +199,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
     // Dept Splits
     const deptSplits: DepartmentSplit[] = subForm.selectedDeptIds.map((id) => ({
       departmentId: id,
-      percentage:
-        subForm.allocationType === AllocationType.PERCENTAGE ? parseFloat(subForm.percentages[id] || '0') : undefined,
+      percentage: subForm.allocationType === AllocationType.PERCENTAGE ? parseFloat(subForm.percentages[id] || '0') : undefined,
     }));
 
     // Account Splits
@@ -254,10 +230,8 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
     };
 
     if (subForm.id) {
-      // Update Existing
       onUpdateSubscription(subForm.id, payload);
     } else {
-      // Create New
       onAddSubscription(payload);
     }
 
@@ -287,13 +261,11 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
   };
 
   const startEditing = (sub: Subscription) => {
-    // Department Percentages
     const percentageMap: Record<string, string> = {};
     sub.departments.forEach((d) => {
       if (d.percentage) percentageMap[d.departmentId] = d.percentage.toString();
     });
 
-    // Account Percentages
     const accPercentageMap: Record<string, string> = {};
     sub.accounts.forEach((a) => {
       if (a.percentage) accPercentageMap[a.accountId] = a.percentage.toString();
@@ -370,17 +342,15 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
     }
   };
 
-  // --- Payment Submit ---  (مع لوج للـ Sheets)
+  // --- Payment Submit ---
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const baseVal = parseFloat(payForm.amount || '0') || 0;
-    const vatVal = payForm.isTaxable ? parseFloat(payForm.vatAmount || '0') || 0 : 0;
+    const baseVal = parseFloat(payForm.amount);
+    const vatVal = payForm.isTaxable ? parseFloat(payForm.vatAmount) : 0;
     const totalVal = baseVal + vatVal;
 
     const wallet = state.wallets.find((w) => w.id === payForm.walletId);
 
-    // Check for insufficient funds
     if (wallet && wallet.balance < totalVal) {
       alert(
         `Transaction Failed: Insufficient funds in "${wallet.name}".\n\nAvailable Balance: ${wallet.balance.toLocaleString()} SAR\nRequired Amount: ${totalVal.toLocaleString()} SAR\n\nPlease transfer funds to this card before proceeding.`
@@ -388,7 +358,22 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
       return;
     }
 
-    // 1) سجل الحركة في السيستم
+    // ***** إرسال البيانات إلى Google Sheets *****
+    const selectedSub = state.subscriptions.find((s) => s.id === payForm.subscriptionId);
+    const selectedWallet = state.wallets.find((w) => w.id === payForm.walletId);
+
+    sendToGoogleSheet({
+      action: 'ADD_PAYMENT',
+      subscriptionName: selectedSub?.name || '',
+      walletName: selectedWallet?.name || '',
+      amount: totalVal,
+      baseAmount: baseVal,
+      vatAmount: vatVal,
+      date: payForm.date,
+      nextRenewalDate: payForm.nextRenewalDate,
+    });
+    // **********************************************
+
     onRecordPayment(
       payForm.subscriptionId,
       payForm.walletId,
@@ -397,23 +382,6 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
       payForm.nextRenewalDate,
       vatVal > 0 ? vatVal : undefined
     );
-
-    // 2) لوج في Google Sheets
-    const sub = state.subscriptions.find((s) => s.id === payForm.subscriptionId);
-    logToSheet({
-      type: 'PAYMENT',
-      subscriptionId: payForm.subscriptionId,
-      subscriptionName: sub ? sub.name : '',
-      walletId: payForm.walletId,
-      walletName: wallet ? wallet.name : '',
-      baseAmount: baseVal,
-      vatAmount: vatVal,
-      totalAmount: totalVal,
-      date: payForm.date,
-      nextRenewalDate: payForm.nextRenewalDate,
-    });
-
-    // 3) Reset form
     setPayForm({
       ...payForm,
       subscriptionId: '',
@@ -426,30 +394,37 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
     setViewMode('HISTORY');
   };
 
-  // --- Refund Submit --- (مع لوج للـ Sheets)
+  // نفس الفانكشن القديمة اللي بتحسب next renewal حسب الـ cycle
+  const onSelectSubscriptionForPayment = (subId: string) => {
+    const sub = state.subscriptions.find((s) => s.id === subId);
+    if (sub) {
+      let nextDate = new Date();
+      if (sub.nextRenewalDate) {
+        const currentRenewal = new Date(sub.nextRenewalDate);
+        nextDate = new Date(currentRenewal);
+        if (sub.billingCycle === 'MONTHLY') nextDate.setMonth(nextDate.getMonth() + 1);
+        if (sub.billingCycle === 'YEARLY') nextDate.setFullYear(nextDate.getFullYear() + 1);
+        if (sub.billingCycle === 'WEEKLY') nextDate.setDate(nextDate.getDate() + 7);
+        if (sub.billingCycle === 'DAILY') nextDate.setDate(nextDate.getDate() + 1);
+      }
+
+      setPayForm((prev) => ({
+        ...prev,
+        subscriptionId: subId,
+        amount: sub.baseAmount.toString(),
+        nextRenewalDate: nextDate.toISOString().split('T')[0],
+        isTaxable: false,
+        vatAmount: '',
+      }));
+    } else {
+      setPayForm((prev) => ({ ...prev, subscriptionId: subId, amount: '', nextRenewalDate: '' }));
+    }
+  };
+
+  // --- Refund Submit ---
   const handleRefundSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const amount = parseFloat(refundForm.amount || '0') || 0;
-
-    // 1) سجل الريفاند في السيستم
-    onRecordRefund(refundForm.subscriptionId, refundForm.walletId, amount, refundForm.date);
-
-    // 2) لوج في Google Sheets
-    const sub = state.subscriptions.find((s) => s.id === refundForm.subscriptionId);
-    const wallet = state.wallets.find((w) => w.id === refundForm.walletId);
-
-    logToSheet({
-      type: 'REFUND',
-      subscriptionId: refundForm.subscriptionId,
-      subscriptionName: sub ? sub.name : '',
-      walletId: refundForm.walletId,
-      walletName: wallet ? wallet.name : '',
-      amount,
-      date: refundForm.date,
-    });
-
-    // 3) Reset form
+    onRecordRefund(refundForm.subscriptionId, refundForm.walletId, parseFloat(refundForm.amount), refundForm.date);
     setRefundForm({
       subscriptionId: '',
       walletId: '',
@@ -477,19 +452,16 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
     .filter((t) => t.type === TransactionType.SUBSCRIPTION_PAYMENT || t.type === TransactionType.REFUND)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // Apply Date Filters
   if (filterDateStart) {
     paymentHistory = paymentHistory.filter((t) => t.date.split('T')[0] >= filterDateStart);
   }
   if (filterDateEnd) {
     paymentHistory = paymentHistory.filter((t) => t.date.split('T')[0] <= filterDateEnd);
   }
-  // Apply Service Filter
   if (filterServiceId) {
     paymentHistory = paymentHistory.filter((t) => t.subscriptionId === filterServiceId);
   }
 
-  // Calculate Total Sum of filtered history
   const filteredTotalPaid = paymentHistory
     .filter((t) => t.type === TransactionType.SUBSCRIPTION_PAYMENT)
     .reduce((sum, t) => sum + t.amount, 0);
@@ -530,9 +502,8 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
 
       const vat = tx.vatAmount || 0;
       totalVat += vat;
-      const baseAmount = tx.amount - vat; // Base amount goes to expense account
+      const baseAmount = tx.amount - vat;
 
-      // --- Use Account Splits for Debit Side ---
       if (!sub.accounts || sub.accounts.length === 0) {
         missingAccountSubs.push(sub.name);
         debitEntries['unallocated'] = (debitEntries['unallocated'] || 0) + baseAmount;
@@ -553,7 +524,6 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
       }
     });
 
-    // Add Total VAT entry if positive
     if (totalVat > 0) {
       debitEntries['vat_tax_account'] = totalVat;
     }
@@ -642,8 +612,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
             </div>
             <div className="p-8 overflow-y-auto bg-amber-50/30" dir="rtl">
               {(() => {
-                const { debitEntries, creditEntries, getAccountName, missingAccountSubs } =
-                  generateAccountingEntry();
+                const { debitEntries, creditEntries, getAccountName, missingAccountSubs } = generateAccountingEntry();
                 return (
                   <div className="font-mono text-right space-y-6 text-gray-800">
                     <div className="text-center font-bold border-b pb-2 mb-4 text-lg">
@@ -652,7 +621,8 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
 
                     {missingAccountSubs.length > 0 && (
                       <div className="mb-4 bg-red-100 border border-red-200 text-red-800 p-3 rounded text-sm text-center">
-                        Warning: The following services have no Accounting Codes (Qoyod) assigned: <br />
+                        Warning: The following services have no Accounting Codes (Qoyod) assigned:
+                        <br />
                         {missingAccountSubs.join(', ')}
                       </div>
                     )}
@@ -676,7 +646,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                           <span>{entry.amount.toLocaleString()}</span>
                           <span className="font-bold">
                             الى حـ/ مولا {entry.name}{' '}
-                            {entry.vat ? `(شامل الضريبة ${entry.vat})` : ''}
+                            {entry.vat ? `(شامل الضريبة ${entry.vat.toLocaleString()})` : ''}
                           </span>
                         </div>
                       ))}
@@ -699,7 +669,10 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
               })()}
             </div>
             <div className="p-4 border-t bg-gray-50 flex justify-end">
-              <button onClick={() => setShowAccountingModal(false)} className="bg-gray-800 text-white px-4 py-2 rounded">
+              <button
+                onClick={() => setShowAccountingModal(false)}
+                className="bg-gray-800 text-white px-4 py-2 rounded"
+              >
                 Close
               </button>
             </div>
@@ -886,9 +859,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
               <textarea
                 className="w-full border rounded-lg px-3 py-2 text-sm h-20"
                 placeholder="Add details like login info, contact person, or purpose..."
@@ -954,9 +925,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                     subForm.selectedDeptIds.length > 0 && (
                       <div className="space-y-1 mt-2">
                         {subForm.selectedDeptIds.map((deptId) => {
-                          const deptName = departments.find(
-                            (d) => d.id === deptId
-                          )?.name;
+                          const deptName = departments.find((d) => d.id === deptId)?.name;
                           return (
                             <div
                               key={deptId}
@@ -1049,9 +1018,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                     subForm.selectedAccountIds.length > 0 && (
                       <div className="space-y-1 mt-2">
                         {subForm.selectedAccountIds.map((accId) => {
-                          const accName = accounts.find(
-                            (a) => a.id === accId
-                          )?.name;
+                          const accName = accounts.find((a) => a.id === accId)?.name;
                           return (
                             <div
                               key={accId}
@@ -1145,9 +1112,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
               <Receipt size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-800">
-                Record Subscription Payment
-              </h3>
+              <h3 className="text-lg font-bold text-gray-800">Record Subscription Payment</h3>
               <p className="text-sm text-gray-500">
                 Log a transaction for an existing service.
               </p>
@@ -1223,7 +1188,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                       setPayForm({ ...payForm, isTaxable: e.target.checked })
                     }
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                 </label>
               </div>
 
@@ -1312,12 +1277,6 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
           <div className="flex items-center gap-3 mb-6 border-b pb-4">
             <div className="p-2 bg-red-100 rounded-lg text-red-600">
               <Undo2 size={24} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-800">Record Refund</h3>
-              <p className="text-sm text-gray-500">
-                Refund funds from a service back to an employee wallet.
-              </p>
             </div>
           </div>
 
@@ -1411,9 +1370,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animation-fade-in">
           <div className="p-6 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row justify-between md:items-end gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-800">
-                Subscription Payment Logs
-              </h3>
+              <h3 className="text-lg font-bold text-gray-800">Subscription Payment Logs</h3>
               <div className="flex flex-wrap gap-2 mt-2 items-center">
                 <span className="text-xs text-gray-500">Filter Date:</span>
                 <input
@@ -1504,9 +1461,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                     return (
                       <tr
                         key={t.id}
-                        className={`hover:bg-gray-50 ${
-                          isRefund ? 'bg-red-50' : ''
-                        }`}
+                        className={`hover:bg-gray-50 ${isRefund ? 'bg-red-50' : ''}`}
                       >
                         <td className="px-6 py-4 text-gray-500">
                           {isEditing ? (
@@ -1662,7 +1617,6 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
       {/* --- VIEW: LIST --- */}
       {viewMode === 'LIST' && (
         <>
-          {/* Search Bar */}
           <div className="relative">
             <Search className="absolute left-3 top-3 text-gray-400" size={20} />
             <input
@@ -1674,7 +1628,6 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
             />
           </div>
 
-          {/* Main Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -1710,9 +1663,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                         <tr
                           key={sub.id}
                           className={`hover:bg-gray-50 transition ${
-                            sub.status === EntityStatus.INACTIVE
-                              ? 'opacity-60'
-                              : ''
+                            sub.status === EntityStatus.INACTIVE ? 'opacity-60' : ''
                           }`}
                         >
                           <td className="px-6 py-4">
@@ -1803,12 +1754,11 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                                 sub.nextRenewalDate
                               ).toLocaleDateString()}
                             </div>
-                            {isUrgent &&
-                              sub.status === EntityStatus.ACTIVE && (
-                                <span className="text-xs text-orange-500">
-                                  Due soon
-                                </span>
-                              )}
+                            {isUrgent && sub.status === EntityStatus.ACTIVE && (
+                              <span className="text-xs text-orange-500">
+                                Due soon
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-right flex justify-end items-center gap-3">
                             <button
