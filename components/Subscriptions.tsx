@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { AppState, Subscription, WalletType, BillingCycle, AllocationType, DepartmentSplit, AccountSplit, TransactionType, EntityStatus, Transaction } from '../types';
 import { Plus, AlertTriangle, Search, Trash2, Receipt, Users, ArrowRight, History, Edit2, StickyNote, CreditCard, Save, X, FileText, Undo2, Coins } from 'lucide-react';
 const GOOGLE_SCRIPT_URL =
-  "https://script.google.com/macros/s/AKfycbyE7SFpyJM4LArPkDPrmWxQRSJxl_ZOInozKwILszZalBao7-2bTQ4cff_4UIegDjEodA/exec";
+  "https://script.google.com/macros/s/AKfycbwuMS27uAxNb9e2ic0cPtrMN0YryDCLPlMv7pQr-ZE7C02ncyyGDcci12aEDcr7W630ug/exec";
 
 
 interface SubscriptionsProps {
