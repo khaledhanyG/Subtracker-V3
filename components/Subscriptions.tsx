@@ -1,6 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { AppState, Subscription, WalletType, BillingCycle, AllocationType, DepartmentSplit, AccountSplit, TransactionType, EntityStatus, Transaction } from '../types';
-import { Plus, AlertTriangle, Search, Trash2, Receipt, Users, ArrowRight, History, Edit2, StickyNote, CreditCard, Save, X, FileText, Undo2, Coins } from 'lucide-react';
+import {
+  AppState,
+  Subscription,
+  WalletType,
+  BillingCycle,
+  AllocationType,
+  DepartmentSplit,
+  AccountSplit,
+  TransactionType,
+  EntityStatus,
+  Transaction,
+} from '../types';
+import {
+  Plus,
+  AlertTriangle,
+  Search,
+  Trash2,
+  Receipt,
+  Users,
+  ArrowRight,
+  History,
+  Edit2,
+  StickyNote,
+  CreditCard,
+  Save,
+  X,
+  FileText,
+  Undo2,
+  Coins,
+} from 'lucide-react';
 
 interface SubscriptionsProps {
   state: AppState;
@@ -28,7 +56,8 @@ const sendToGoogleSheet = (payload: any) => {
   if (!GOOGLE_SCRIPT_URL) return;
 
   try {
-    // no-cors عشان CORS
+    console.log('Sending to Google Sheet...', payload);
+
     fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -36,7 +65,13 @@ const sendToGoogleSheet = (payload: any) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-    });
+    })
+      .then(() => {
+        console.log('Request sent ✅ (no-cors)');
+      })
+      .catch((err) => {
+        console.error('Failed to send to Google Sheet', err);
+      });
   } catch (err) {
     console.error('Failed to send to Google Sheet', err);
   }
@@ -345,8 +380,8 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
   // --- Payment Submit ---
   const handlePaymentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const baseVal = parseFloat(payForm.amount);
-    const vatVal = payForm.isTaxable ? parseFloat(payForm.vatAmount) : 0;
+    const baseVal = parseFloat(payForm.amount || '0');
+    const vatVal = payForm.isTaxable ? parseFloat(payForm.vatAmount || '0') : 0;
     const totalVal = baseVal + vatVal;
 
     const wallet = state.wallets.find((w) => w.id === payForm.walletId);
@@ -358,17 +393,19 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
       return;
     }
 
-    // ***** إرسال البيانات إلى Google Sheets *****
     const selectedSub = state.subscriptions.find((s) => s.id === payForm.subscriptionId);
     const selectedWallet = state.wallets.find((w) => w.id === payForm.walletId);
 
+    // ***** إرسال البيانات إلى Google Sheets *****
     sendToGoogleSheet({
-      action: 'ADD_PAYMENT',
+      type: 'PAYMENT',
+      subscriptionId: selectedSub?.id || '',
       subscriptionName: selectedSub?.name || '',
+      walletId: selectedWallet?.id || '',
       walletName: selectedWallet?.name || '',
-      amount: totalVal,
       baseAmount: baseVal,
       vatAmount: vatVal,
+      totalAmount: totalVal,
       date: payForm.date,
       nextRenewalDate: payForm.nextRenewalDate,
     });
@@ -423,41 +460,39 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
 
   // --- Refund Submit ---
   const handleRefundSubmit = (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const amountVal = parseFloat(refundForm.amount);
+    const amountVal = parseFloat(refundForm.amount || '0');
 
-  // نجيب أسماء الخدمة والـ Wallet علشان نسجلهم في الشيت
-  const sub = state.subscriptions.find(s => s.id === refundForm.subscriptionId);
-  const wallet = state.wallets.find(w => w.id === refundForm.walletId);
+    const sub = state.subscriptions.find((s) => s.id === refundForm.subscriptionId);
+    const wallet = state.wallets.find((w) => w.id === refundForm.walletId);
 
-  // 👈 إرسال الريفاند لجوجل شيت
-  sendToGoogleSheet({
-    action: 'ADD_REFUND',
-    subscriptionName: sub?.name || '',
-    walletName: wallet?.name || '',
-    amount: amountVal,
-    date: refundForm.date,
-  });
+    // 👈 إرسال الريفاند لجوجل شيت بنفس فورمات الـ Payment
+    sendToGoogleSheet({
+      type: 'REFUND',
+      subscriptionId: sub?.id || '',
+      subscriptionName: sub?.name || '',
+      walletId: wallet?.id || '',
+      walletName: wallet?.name || '',
+      baseAmount: '',
+      vatAmount: '',
+      totalAmount: amountVal,
+      date: refundForm.date,
+      nextRenewalDate: '',
+    });
 
-  // 👈 تسجيل الريفاند جوه أبلكيشن SubTrack نفسه
-  onRecordRefund(
-    refundForm.subscriptionId,
-    refundForm.walletId,
-    amountVal,
-    refundForm.date
-  );
+    // 👈 تسجيل الريفاند جوه أبلكيشن SubTrack نفسه
+    onRecordRefund(refundForm.subscriptionId, refundForm.walletId, amountVal, refundForm.date);
 
-  // reset form
-  setRefundForm({
-    subscriptionId: '',
-    walletId: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-  });
-  setViewMode('HISTORY');
-};
-
+    // reset form
+    setRefundForm({
+      subscriptionId: '',
+      walletId: '',
+      amount: '',
+      date: new Date().toISOString().split('T')[0],
+    });
+    setViewMode('HISTORY');
+  };
 
   const getWalletName = (id?: string) => {
     const w = state.wallets.find((w) => w.id === id);
@@ -469,9 +504,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
     return s ? s.name : 'Unknown Service';
   };
 
-  const filteredSubs = state.subscriptions.filter((s) =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSubs = state.subscriptions.filter((s) => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   let paymentHistory = state.transactions
     .filter((t) => t.type === TransactionType.SUBSCRIPTION_PAYMENT || t.type === TransactionType.REFUND)
@@ -785,9 +818,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
               <label className="text-sm font-medium text-gray-700">Status:</label>
               <select
                 value={subForm.status}
-                onChange={(e) =>
-                  setSubForm({ ...subForm, status: e.target.value as EntityStatus })
-                }
+                onChange={(e) => setSubForm({ ...subForm, status: e.target.value as EntityStatus })}
                 className={`text-xs font-bold py-1 px-2 rounded border ${
                   subForm.status === EntityStatus.ACTIVE
                     ? 'bg-green-50 text-green-700 border-green-200'
@@ -803,9 +834,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
           <form onSubmit={handleAddOrUpdateSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Service Name
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Service Name</label>
                 <input
                   required
                   type="text"
@@ -827,29 +856,21 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Base Cost (SAR)
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Base Cost (SAR)</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2 text-gray-500 text-xs pt-0.5">
-                    SAR
-                  </span>
+                  <span className="absolute left-3 top-2 text-gray-500 text-xs pt-0.5">SAR</span>
                   <input
                     required
                     type="number"
                     step="0.01"
                     className="w-full border rounded-lg pl-10 pr-3 py-2"
                     value={subForm.baseAmount}
-                    onChange={(e) =>
-                      setSubForm({ ...subForm, baseAmount: e.target.value })
-                    }
+                    onChange={(e) => setSubForm({ ...subForm, baseAmount: e.target.value })}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Billing Cycle
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Billing Cycle</label>
                 <select
                   className="w-full border rounded-lg px-3 py-2 bg-white"
                   value={subForm.billingCycle}
@@ -868,17 +889,13 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Number of Users
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Number of Users</label>
                 <input
                   required
                   type="number"
                   className="w-full border rounded-lg px-3 py-2"
                   value={subForm.userCount}
-                  onChange={(e) =>
-                    setSubForm({ ...subForm, userCount: e.target.value })
-                  }
+                  onChange={(e) => setSubForm({ ...subForm, userCount: e.target.value })}
                 />
               </div>
             </div>
@@ -952,10 +969,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                         {subForm.selectedDeptIds.map((deptId) => {
                           const deptName = departments.find((d) => d.id === deptId)?.name;
                           return (
-                            <div
-                              key={deptId}
-                              className="flex items-center justify-between text-xs"
-                            >
+                            <div key={deptId} className="flex items-center justify-between text-xs">
                               <span className="truncate w-24">{deptName}</span>
                               <div className="flex items-center gap-1">
                                 <input
@@ -1034,9 +1048,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                       </button>
                     ))}
                     {accounts.length === 0 && (
-                      <span className="text-xs text-gray-400 italic">
-                        No Qoyod accounts defined.
-                      </span>
+                      <span className="text-xs text-gray-400 italic">No Qoyod accounts defined.</span>
                     )}
                   </div>
                   {subForm.accountAllocationType === AllocationType.PERCENTAGE &&
@@ -1045,10 +1057,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                         {subForm.selectedAccountIds.map((accId) => {
                           const accName = accounts.find((a) => a.id === accId)?.name;
                           return (
-                            <div
-                              key={accId}
-                              className="flex items-center justify-between text-xs"
-                            >
+                            <div key={accId} className="flex items-center justify-between text-xs">
                               <span className="truncate w-24">{accName}</span>
                               <div className="flex items-center gap-1">
                                 <input
@@ -1078,31 +1087,23 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
 
             <div className="flex gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                 <input
                   required
                   type="date"
                   className="w-full border rounded-lg px-3 py-2"
                   value={subForm.startDate}
-                  onChange={(e) =>
-                    setSubForm({ ...subForm, startDate: e.target.value })
-                  }
+                  onChange={(e) => setSubForm({ ...subForm, startDate: e.target.value })}
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Next Renewal / Payment Due
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Next Renewal / Payment Due</label>
                 <input
                   required
                   type="date"
                   className="w-full border rounded-lg px-3 py-2"
                   value={subForm.renewalDate}
-                  onChange={(e) =>
-                    setSubForm({ ...subForm, renewalDate: e.target.value })
-                  }
+                  onChange={(e) => setSubForm({ ...subForm, renewalDate: e.target.value })}
                 />
               </div>
             </div>
@@ -1138,9 +1139,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-gray-800">Record Subscription Payment</h3>
-              <p className="text-sm text-gray-500">
-                Log a transaction for an existing service.
-              </p>
+              <p className="text-sm text-gray-500">Log a transaction for an existing service.</p>
             </div>
           </div>
 
@@ -1177,9 +1176,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                   step="0.01"
                   className="w-full border rounded-lg px-3 py-2"
                   value={payForm.amount}
-                  onChange={(e) =>
-                    setPayForm({ ...payForm, amount: e.target.value })
-                  }
+                  onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
                 />
               </div>
               <div>
@@ -1191,9 +1188,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                   type="date"
                   className="w-full border rounded-lg px-3 py-2"
                   value={payForm.date}
-                  onChange={(e) =>
-                    setPayForm({ ...payForm, date: e.target.value })
-                  }
+                  onChange={(e) => setPayForm({ ...payForm, date: e.target.value })}
                 />
               </div>
             </div>
@@ -1209,9 +1204,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                     type="checkbox"
                     className="sr-only peer"
                     checked={payForm.isTaxable}
-                    onChange={(e) =>
-                      setPayForm({ ...payForm, isTaxable: e.target.checked })
-                    }
+                    onChange={(e) => setPayForm({ ...payForm, isTaxable: e.target.checked })}
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                 </label>
@@ -1228,17 +1221,15 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                       step="0.01"
                       className="w-full border border-gray-300 rounded px-2 py-1 text-sm bg-white"
                       value={payForm.vatAmount}
-                      onChange={(e) =>
-                        setPayForm({ ...payForm, vatAmount: e.target.value })
-                      }
+                      onChange={(e) => setPayForm({ ...payForm, vatAmount: e.target.value })}
                     />
                   </div>
                   <div className="flex flex-col justify-end">
                     <div className="text-xs text-gray-500">Total Deduction</div>
                     <div className="font-bold text-lg text-gray-800">
                       {(
-                        (parseFloat(payForm.amount) || 0) +
-                        (parseFloat(payForm.vatAmount) || 0)
+                        (parseFloat(payForm.amount || '0') || 0) +
+                        (parseFloat(payForm.vatAmount || '0') || 0)
                       ).toLocaleString()}{' '}
                       SAR
                     </div>
@@ -1256,9 +1247,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                 type="date"
                 className="w-full border rounded-lg px-3 py-2"
                 value={payForm.nextRenewalDate}
-                onChange={(e) =>
-                  setPayForm({ ...payForm, nextRenewalDate: e.target.value })
-                }
+                onChange={(e) => setPayForm({ ...payForm, nextRenewalDate: e.target.value })}
               />
               <p className="text-xs text-gray-500 mt-1">
                 Updates the service renewal date automatically.
@@ -1273,9 +1262,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                 required
                 className="w-full border rounded-lg px-3 py-2 bg-white"
                 value={payForm.walletId}
-                onChange={(e) =>
-                  setPayForm({ ...payForm, walletId: e.target.value })
-                }
+                onChange={(e) => setPayForm({ ...payForm, walletId: e.target.value })}
               >
                 <option value="">-- Select Employee Card --</option>
                 {employeeWallets.map((w) => (
@@ -1314,9 +1301,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                 required
                 className="w-full border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-red-500 outline-none"
                 value={refundForm.subscriptionId}
-                onChange={(e) =>
-                  setRefundForm({ ...refundForm, subscriptionId: e.target.value })
-                }
+                onChange={(e) => setRefundForm({ ...refundForm, subscriptionId: e.target.value })}
               >
                 <option value="">-- Select Service --</option>
                 {state.subscriptions.map((s) => (
@@ -1335,9 +1320,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                 required
                 className="w-full border rounded-lg px-3 py-2 bg-white"
                 value={refundForm.walletId}
-                onChange={(e) =>
-                  setRefundForm({ ...refundForm, walletId: e.target.value })
-                }
+                onChange={(e) => setRefundForm({ ...refundForm, walletId: e.target.value })}
               >
                 <option value="">-- Select Employee Card --</option>
                 {employeeWallets.map((w) => (
@@ -1359,9 +1342,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                   step="0.01"
                   className="w-full border rounded-lg px-3 py-2"
                   value={refundForm.amount}
-                  onChange={(e) =>
-                    setRefundForm({ ...refundForm, amount: e.target.value })
-                  }
+                  onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })}
                 />
               </div>
               <div>
@@ -1373,9 +1354,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                   type="date"
                   className="w-full border rounded-lg px-3 py-2"
                   value={refundForm.date}
-                  onChange={(e) =>
-                    setRefundForm({ ...refundForm, date: e.target.value })
-                  }
+                  onChange={(e) => setRefundForm({ ...refundForm, date: e.target.value })}
                 />
               </div>
             </div>
@@ -1472,10 +1451,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
               <tbody className="divide-y divide-gray-100">
                 {paymentHistory.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-8 text-center text-gray-400"
-                    >
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       No payments recorded in this period.
                     </td>
                   </tr>
@@ -1484,10 +1460,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                     const isEditing = editingTxId === t.id;
                     const isRefund = t.type === TransactionType.REFUND;
                     return (
-                      <tr
-                        key={t.id}
-                        className={`hover:bg-gray-50 ${isRefund ? 'bg-red-50' : ''}`}
-                      >
+                      <tr key={t.id} className={`hover:bg-gray-50 ${isRefund ? 'bg-red-50' : ''}`}>
                         <td className="px-6 py-4 text-gray-500">
                           {isEditing ? (
                             <input
@@ -1512,9 +1485,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                             </span>
                           ) : (
                             <div className="flex flex-col">
-                              <span className="text-green-600 text-xs font-bold uppercase">
-                                Payment
-                              </span>
+                              <span className="text-green-600 text-xs font-bold uppercase">Payment</span>
                               {t.vatAmount && t.vatAmount > 0 && (
                                 <span className="text-[10px] text-gray-400">
                                   Inc. VAT {t.vatAmount.toLocaleString()}
@@ -1671,10 +1642,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                 <tbody className="divide-y divide-gray-100">
                   {filteredSubs.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={8}
-                        className="px-6 py-12 text-center text-gray-400"
-                      >
+                      <td colSpan={8} className="px-6 py-12 text-center text-gray-400">
                         No subscriptions defined.
                       </td>
                     </tr>
@@ -1693,14 +1661,10 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">
-                                {sub.name}
-                              </span>
+                              <span className="font-medium text-gray-900">{sub.name}</span>
                               {sub.notes && (
                                 <button
-                                  onClick={() =>
-                                    openNoteModal(sub.name, sub.notes || '')
-                                  }
+                                  onClick={() => openNoteModal(sub.name, sub.notes || '')}
                                   className="text-yellow-500 hover:text-yellow-600 cursor-pointer transition"
                                   title="View Notes"
                                 >
@@ -1732,9 +1696,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
                               {sub.departments.map((split, idx) => {
-                                const dept = departments.find(
-                                  (d) => d.id === split.departmentId
-                                );
+                                const dept = departments.find((d) => d.id === split.departmentId);
                                 return (
                                   <span
                                     key={idx}
@@ -1745,10 +1707,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                                       backgroundColor: '#ffffff',
                                     }}
                                   >
-                                    {dept?.name}{' '}
-                                    {split.percentage
-                                      ? `(${split.percentage}%)`
-                                      : ''}
+                                    {dept?.name} {split.percentage ? `(${split.percentage}%)` : ''}
                                   </span>
                                 );
                               })}
@@ -1756,9 +1715,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                           </td>
                           <td className="px-6 py-4 text-gray-500">
                             {sub.lastPaymentDate
-                              ? new Date(
-                                  sub.lastPaymentDate
-                                ).toLocaleDateString()
+                              ? new Date(sub.lastPaymentDate).toLocaleDateString()
                               : '-'}
                           </td>
                           <td className="px-6 py-4">
@@ -1771,18 +1728,13 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({
                                   : 'text-gray-600'
                               }`}
                             >
-                              {(isUrgent || isOverdue) &&
-                                sub.status === EntityStatus.ACTIVE && (
-                                  <AlertTriangle size={14} />
-                                )}
-                              {new Date(
-                                sub.nextRenewalDate
-                              ).toLocaleDateString()}
+                              {(isUrgent || isOverdue) && sub.status === EntityStatus.ACTIVE && (
+                                <AlertTriangle size={14} />
+                              )}
+                              {new Date(sub.nextRenewalDate).toLocaleDateString()}
                             </div>
                             {isUrgent && sub.status === EntityStatus.ACTIVE && (
-                              <span className="text-xs text-orange-500">
-                                Due soon
-                              </span>
+                              <span className="text-xs text-orange-500">Due soon</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-right flex justify-end items-center gap-3">
