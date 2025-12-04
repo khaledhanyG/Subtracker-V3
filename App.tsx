@@ -27,10 +27,45 @@ import {
   LogOut,
 } from 'lucide-react';
 
-// ✅ نفس INITIAL_STATE كـ fallback لو السيرفر وقع
+// 🔗 لينك Google Apps Script
+const GOOGLE_SCRIPT_BASE =
+  'https://script.google.com/macros/s/AKfycbw8grU2D5aqxAUZ9Cvq4pTU0XM5hfplRt0cWonNyjA8x1z8UQohh7J4BmUPJiyQCRfDEw/exec';
+
+// شكل الداتا الراجعة من Google Sheets
+interface RemoteWallet {
+  id: string;
+  name: string;
+  type: string; // 'MAIN' | 'EMPLOYEE'
+  balance: number;
+  holderName?: string;
+  status?: string; // 'ACTIVE' | 'INACTIVE'
+}
+
+interface RemoteWalletTx {
+  id: string;
+  date: string;
+  amount: number;
+  type: string; // 'DEPOSIT_FROM_BANK' | 'INTERNAL_TRANSFER'
+  fromWalletId?: string;
+  toWalletId?: string;
+  description?: string;
+}
+
+interface RemoteState {
+  wallets?: RemoteWallet[];
+  walletTransactions?: RemoteWalletTx[];
+}
+
+// الحالة الافتراضية لو مفيش داتا من جوجل شيت
 const INITIAL_STATE: AppState = {
   wallets: [
-    { id: 'main-wallet', name: 'Main HQ Wallet', type: WalletType.MAIN, balance: 0, status: EntityStatus.ACTIVE },
+    {
+      id: 'main-wallet',
+      name: 'Main HQ Wallet',
+      type: WalletType.MAIN,
+      balance: 0,
+      status: EntityStatus.ACTIVE,
+    },
   ],
   departments: [
     { id: 'dept-1', name: 'Marketing', color: '#3B82F6' },
@@ -44,28 +79,93 @@ const INITIAL_STATE: AppState = {
   transactions: [],
 };
 
-// 🔗 لينك الـ Google Script (نفس اللي استخدمناه في السكربت)
-const GOOGLE_SCRIPT_BASE =
-  'https://script.google.com/macros/s/AKfycbw8grU2D5aqxAUZ9Cvq4pTU0XM5hfplRt0cWonNyjA8x1z8UQohh7J4BmUPJiyQCRfDEw/exec';
+// 🛰️ Sync Wallets + WalletTransactions → Google Sheets
+const syncWalletsToGoogle = (wallets: Wallet[], transactions: Transaction[]) => {
+  try {
+    const walletPayload = wallets.map((w) => ({
+      id: w.id,
+      name: w.name,
+      type: w.type === WalletType.MAIN ? 'MAIN' : 'EMPLOYEE',
+      balance: w.balance,
+      holderName: w.holderName || '',
+      status: w.status === EntityStatus.INACTIVE ? 'INACTIVE' : 'ACTIVE',
+    }));
 
-// شكل الداتا راجعة من Google Sheets
-type RemoteWallet = {
-  id: string;
-  name: string;
-  type: string;
-  balance: number | string;
-  holderName?: string;
-  status?: string;
+    const txPayload = transactions
+      .filter(
+        (t) =>
+          t.type === TransactionType.DEPOSIT_FROM_BANK ||
+          t.type === TransactionType.INTERNAL_TRANSFER
+      )
+      .map((t) => ({
+        id: t.id,
+        date: t.date,
+        amount: t.amount,
+        type:
+          t.type === TransactionType.DEPOSIT_FROM_BANK
+            ? 'DEPOSIT_FROM_BANK'
+            : 'INTERNAL_TRANSFER',
+        fromWalletId: t.fromWalletId || '',
+        toWalletId: t.toWalletId || '',
+        description: t.description || '',
+      }));
+
+    fetch(GOOGLE_SCRIPT_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'SAVE_WALLETS_STATE',
+        wallets: walletPayload,
+        walletTransactions: txPayload,
+      }),
+    });
+  } catch (err) {
+    console.error('Failed to sync wallets to Google Sheets', err);
+  }
 };
 
-type RemoteWalletTx = {
-  id?: string;
-  date?: string;
-  amount?: number | string;
-  type?: string;
-  fromWalletId?: string;
-  toWalletId?: string;
-  description?: string;
+// 🧠 تحويل Remote → Typescript types في الأبلكيشن
+const mapRemoteToState = (remote: RemoteState | null): AppState => {
+  if (!remote) return INITIAL_STATE;
+
+  const nextState: AppState = {
+    ...INITIAL_STATE,
+    wallets: [...INITIAL_STATE.wallets],
+    departments: [...INITIAL_STATE.departments],
+    accounts: [...INITIAL_STATE.accounts],
+    subscriptions: [...INITIAL_STATE.subscriptions],
+    transactions: [...INITIAL_STATE.transactions],
+  };
+
+  if (remote.wallets && remote.wallets.length > 0) {
+    nextState.wallets = remote.wallets.map((w) => ({
+      id: w.id || crypto.randomUUID(),
+      name: w.name || 'Wallet',
+      type: w.type === 'MAIN' ? WalletType.MAIN : WalletType.EMPLOYEE,
+      balance: Number(w.balance) || 0,
+      holderName: w.holderName || '',
+      status: w.status === 'INACTIVE' ? EntityStatus.INACTIVE : EntityStatus.ACTIVE,
+    }));
+  }
+
+  if (remote.walletTransactions && remote.walletTransactions.length > 0) {
+    const txs: Transaction[] = remote.walletTransactions.map((t) => ({
+      id: t.id || crypto.randomUUID(),
+      date: t.date || new Date().toISOString(),
+      amount: Number(t.amount) || 0,
+      type:
+        t.type === 'DEPOSIT_FROM_BANK'
+          ? TransactionType.DEPOSIT_FROM_BANK
+          : TransactionType.INTERNAL_TRANSFER,
+      fromWalletId: t.fromWalletId || undefined,
+      toWalletId: t.toWalletId || undefined,
+      description: t.description || '',
+    }));
+
+    nextState.transactions = [...nextState.transactions, ...txs];
+  }
+
+  return nextState;
 };
 
 function App() {
@@ -73,18 +173,16 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  // ✅ Loading state للداتا اللي جاية من Google Sheets
-  const [isDataLoading, setIsDataLoading] = useState(true);
-  const [dataError, setDataError] = useState<string | null>(null);
+  // تحميل الداتا من Google Sheets
+  const [isStateLoading, setIsStateLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'wallets' | 'subscriptions' | 'departments' | 'qoyod' | 'ocr'
   >('dashboard');
 
-  // ❗ هنا شيلنا localStorage من init — دلوقتي بنبدأ بـ INITIAL_STATE
   const [state, setState] = useState<AppState>(INITIAL_STATE);
 
-  // ✅ Check auth مرة واحدة
+  // 🟣 Check auth from localStorage (زي ما هو)
   useEffect(() => {
     const authStatus = localStorage.getItem('subtrack_auth');
     if (authStatus === 'true') {
@@ -93,92 +191,45 @@ function App() {
     setIsAuthChecking(false);
   }, []);
 
-  // ✅ Load state من Google Sheets مرة واحدة على mount
+  // 🟡 تحميل أولي من Google Sheets (GET_STATE)
   useEffect(() => {
-    const fetchStateFromSheets = async () => {
+    const loadFromGoogle = async () => {
       try {
-        setIsDataLoading(true);
-        setDataError(null);
-
-        const url = `${GOOGLE_SCRIPT_BASE}?action=GET_STATE`;
-        const res = await fetch(url, {
+        const res = await fetch(`${GOOGLE_SCRIPT_BASE}?action=GET_STATE`, {
           method: 'GET',
         });
 
-        // لو السكربت معمول no-cors هنا هيرجع opaque وما ينفعش نقرأ الـ body
-        // فأنا افترضت إنك سايبه GET عادي (cors/anonymous) عشان نقدر نعمل res.json()
         if (!res.ok) {
-          console.error('Failed to load state from Google Script', res.status);
-          setDataError(`Failed to load data from server (${res.status})`);
-          setIsDataLoading(false);
+          console.warn('GET_STATE not ok, using INITIAL_STATE');
+          setState(INITIAL_STATE);
+          setIsStateLoading(false);
           return;
         }
 
-        const data = (await res.json()) as {
-          wallets?: RemoteWallet[];
-          walletTransactions?: RemoteWalletTx[];
-        };
-
-        const remoteWallets = Array.isArray(data.wallets) ? data.wallets : [];
-        const remoteTxs = Array.isArray(data.walletTransactions)
-          ? data.walletTransactions
-          : [];
-
-        const mappedWallets: Wallet[] = remoteWallets.map((w) => ({
-          id: String(w.id),
-          name: String(w.name),
-          type: w.type === 'MAIN' ? WalletType.MAIN : WalletType.EMPLOYEE,
-          balance: Number(w.balance || 0),
-          holderName: w.holderName || undefined,
-          status:
-            w.status === 'INACTIVE'
-              ? EntityStatus.INACTIVE
-              : EntityStatus.ACTIVE,
-        }));
-
-        const mappedWalletTransactions: Transaction[] = remoteTxs.map((t) => {
-          let txType: TransactionType = TransactionType.DEPOSIT_FROM_BANK;
-          if (t.type === 'DEPOSIT_FROM_BANK') {
-            txType = TransactionType.DEPOSIT_FROM_BANK;
-          } else if (t.type === 'INTERNAL_TRANSFER') {
-            txType = TransactionType.INTERNAL_TRANSFER;
-          }
-
-          const isoDate =
-            typeof t.date === 'string' && t.date
-              ? new Date(t.date).toISOString()
-              : new Date().toISOString();
-
-          return {
-            id: t.id ? String(t.id) : crypto.randomUUID(),
-            date: isoDate,
-            amount: Number(t.amount || 0),
-            type: txType,
-            fromWalletId: t.fromWalletId || undefined,
-            toWalletId: t.toWalletId || undefined,
-            description: t.description || '',
-          };
-        });
-
-        // 🧠 خلي بالك:
-        // هنا بنحط الـ wallets و الـ walletTransactions من الشيت
-        // وبنسيب subscriptions/departments/accounts زي ما هي من INITIAL_STATE
-        setState((prev) => ({
-          ...prev,
-          wallets: mappedWallets.length > 0 ? mappedWallets : prev.wallets,
-          // بنسيب payments/refunds (لو ضفناها في المستقبل) — دلوقتي مفيش
-          transactions: mappedWalletTransactions,
-        }));
+        const data = (await res.json()) as RemoteState;
+        const mapped = mapRemoteToState(data);
+        setState(mapped);
       } catch (err) {
-        console.error('Error loading state from Google Script', err);
-        setDataError('Error loading data from server.');
+        console.error('Failed to load state from Google Sheets', err);
+        setState(INITIAL_STATE);
       } finally {
-        setIsDataLoading(false);
+        setIsStateLoading(false);
       }
     };
 
-    fetchStateFromSheets();
+    loadFromGoogle();
   }, []);
+
+  // 🟢 أي تغيير في wallets أو transactions → sync مع Google Sheets
+  useEffect(() => {
+    if (isStateLoading) return; // ما نعملش sync قبل أول load
+    const walletTx = state.transactions.filter(
+      (t) =>
+        t.type === TransactionType.DEPOSIT_FROM_BANK ||
+        t.type === TransactionType.INTERNAL_TRANSFER
+    );
+    syncWalletsToGoogle(state.wallets, walletTx);
+  }, [state.wallets, state.transactions, isStateLoading]);
 
   const handleLogin = (success: boolean) => {
     if (success) {
@@ -265,7 +316,7 @@ function App() {
     });
   };
 
-  // Enhanced Edit Transaction: Handles full updates (Date, Amount, Wallets, Desc)
+  // Enhanced Edit Transaction
   const editTransaction = (txId: string, updates: Partial<Transaction>) => {
     setState((prev) => {
       const txIndex = prev.transactions.findIndex((t) => t.id === txId);
@@ -274,7 +325,7 @@ function App() {
 
       let tempWallets = [...prev.wallets];
 
-      // 1. Revert Old Transaction Effect
+      // Revert old
       if (oldTx.type === TransactionType.DEPOSIT_FROM_BANK && oldTx.toWalletId) {
         const wIndex = tempWallets.findIndex((w) => w.id === oldTx.toWalletId);
         if (wIndex > -1) {
@@ -323,14 +374,11 @@ function App() {
         }
       }
 
-      // 2. Apply New Transaction Effect
       const updatedTx = { ...oldTx, ...updates };
       const newAmount = updatedTx.amount;
 
-      if (
-        updatedTx.type === TransactionType.DEPOSIT_FROM_BANK &&
-        updatedTx.toWalletId
-      ) {
+      // Apply new
+      if (updatedTx.type === TransactionType.DEPOSIT_FROM_BANK && updatedTx.toWalletId) {
         const wIndex = tempWallets.findIndex((w) => w.id === updatedTx.toWalletId);
         if (wIndex > -1) {
           tempWallets[wIndex] = {
@@ -480,13 +528,8 @@ function App() {
       const wallet = prev.wallets.find((w) => w.id === walletId);
       const sub = prev.subscriptions.find((s) => s.id === subscriptionId);
 
-      if (!wallet || !sub) {
-        return prev;
-      }
-
-      if (wallet.balance < amount) {
-        return prev;
-      }
+      if (!wallet || !sub) return prev;
+      if (wallet.balance < amount) return prev;
 
       const updatedWallets = prev.wallets.map((w) =>
         w.id === walletId ? { ...w, balance: w.balance - amount } : w
@@ -506,13 +549,13 @@ function App() {
 
       const transaction: Transaction = {
         id: crypto.randomUUID(),
-        date: date,
-        amount: amount,
+        date,
+        amount,
         type: TransactionType.SUBSCRIPTION_PAYMENT,
         fromWalletId: walletId,
-        subscriptionId: subscriptionId,
+        subscriptionId,
         description: `Payment for ${sub.name}`,
-        vatAmount: vatAmount,
+        vatAmount,
       };
 
       return {
@@ -536,16 +579,15 @@ function App() {
       );
 
       const subName =
-        prev.subscriptions.find((s) => s.id === subscriptionId)?.name ||
-        'Service';
+        prev.subscriptions.find((s) => s.id === subscriptionId)?.name || 'Service';
 
       const refundTx: Transaction = {
         id: crypto.randomUUID(),
-        date: date,
-        amount: amount,
+        date,
+        amount,
         type: TransactionType.REFUND,
         toWalletId: walletId,
-        subscriptionId: subscriptionId,
+        subscriptionId,
         description: `Refund from ${subName}`,
       };
 
@@ -610,19 +652,12 @@ function App() {
     }));
   };
 
-  // --- Loading Gate (Auth + Data) ---
-  if (isAuthChecking || isDataLoading) {
+  // --- Loading / Auth Gates ---
+
+  if (isAuthChecking || isStateLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 gap-3">
-        <div className="animate-spin h-8 w-8 border-4 border-indigo-500 rounded-full border-t-transparent" />
-        <p className="text-sm text-gray-500">
-          Loading SubTrack AI...
-        </p>
-        {dataError && (
-          <p className="text-xs text-red-500 mt-1">
-            {dataError}
-          </p>
-        )}
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin h-8 w-8 border-4 border-indigo-500 rounded-full border-t-transparent"></div>
       </div>
     );
   }
@@ -631,6 +666,7 @@ function App() {
     return <Login onLogin={handleLogin} />;
   }
 
+  // --- UI ---
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
       {/* Sidebar */}
