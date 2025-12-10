@@ -18,7 +18,17 @@ const INITIAL_STATE: AppState = {
   transactions: []
 };
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
   // Authentication State
   const [user, setUser] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -51,7 +61,6 @@ function App() {
     setLoadingData(true);
     try {
       const res = await api.get('/data');
-      // Helper to fix types (Postgres returns decimals as strings)
       const fixNumbers = (item: any, fields: string[]) => {
           const newItem = { ...item };
           fields.forEach(f => {
@@ -60,12 +69,16 @@ function App() {
           return newItem;
       };
 
+      if (!res.data || !res.data.wallets) {
+          throw new Error("Invalid API response format");
+      }
+
       setState({
-        wallets: res.data.wallets.map((w: any) => fixNumbers(w, ['balance'])),
-        subscriptions: res.data.subscriptions.map((s: any) => fixNumbers(s, ['baseAmount', 'lastPaymentAmount'])),
-        transactions: res.data.transactions.map((t: any) => fixNumbers(t, ['amount', 'vatAmount'])),
-        departments: res.data.departments,
-        accounts: res.data.accounts
+        wallets: (res.data.wallets || []).map((w: any) => fixNumbers(w, ['balance'])),
+        subscriptions: (res.data.subscriptions || []).map((s: any) => fixNumbers(s, ['baseAmount', 'lastPaymentAmount'])),
+        transactions: (res.data.transactions || []).map((t: any) => fixNumbers(t, ['amount', 'vatAmount'])),
+        departments: res.data.departments || [],
+        accounts: res.data.accounts || []
       });
     } catch (e) {
       console.error("Failed to load data", e);

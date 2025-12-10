@@ -1,5 +1,5 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { query } from '../db';
+import { query } from '../db/index';
 import { authenticated } from '../lib/auth';
 
 const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {

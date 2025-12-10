@@ -5,6 +5,12 @@ dotenv.config();
 
 const { Pool } = pkg;
 
+if (!process.env.DATABASE_URL) {
+  console.error("CRITICAL ERROR: DATABASE_URL is undefined! Check your .env file.");
+} else {
+  console.log("Database connection initialized with URL length:", process.env.DATABASE_URL.length);
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {

@@ -46,10 +46,14 @@ api.interceptors.request.use((config) => {
 
 // Interceptor to transform responses
 api.interceptors.response.use((response) => {
-  if (response.data) {
+  if (response.data && typeof response.data === 'object') {
      response.data = keysToCamel(response.data);
   }
   return response;
+}, (error) => {
+  // Handle network errors or 4xx/5xx responses
+  console.error("API Error:", error);
+  return Promise.reject(error);
 });
 
 export const setToken = (token: string) => {
