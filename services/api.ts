@@ -52,7 +52,11 @@ api.interceptors.response.use((response) => {
   return response;
 }, (error) => {
   // Handle network errors or 4xx/5xx responses
-  console.error("API Error:", error);
+  console.error("API Error Full:", error);
+  if (error.response) {
+      console.error("API Error Response Data:", error.response.data);
+      console.error("API Error Status:", error.response.status);
+  }
   return Promise.reject(error);
 });
 

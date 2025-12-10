@@ -1,6 +1,4 @@
--- Run this in your Neon Console SQL Editor to create the Admin user
-INSERT INTO users (email, password_hash, name)
-VALUES 
-    ('AdminL', '$2b$10$qjU.sscQEvNlzHf..R/.tejg1U.HwpCpr5CZA7jk2uvew4pHfxhhe', 'Admin User')
-ON CONFLICT (email) DO UPDATE 
-SET password_hash = '$2b$10$qjU.sscQEvNlzHf..R/.tejg1U.HwpCpr5CZA7jk2uvew4pHfxhhe';
+-- Run this in Neon Console to Fix the Password
+UPDATE users 
+SET password_hash = '$2b$10$O5l0iEHQ8eR08N0CGpQ8zuFlq2rwI8d3hTATsfV/w7vmF35Vp.xHC' 
+WHERE email = 'AdminL';

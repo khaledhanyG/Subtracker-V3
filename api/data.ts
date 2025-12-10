@@ -1,6 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { query } from '../db/index';
-import { authenticated } from '../lib/auth';
+import { query } from '../db/index.js';
+import { authenticated } from '../lib/auth.js';
 
 const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
   if (req.method !== 'GET') {

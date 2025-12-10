@@ -1,32 +1,48 @@
-import pkg from "pg";
-import dotenv from "dotenv";
-
-dotenv.config();
-
+import pkg from 'pg';
 const { Pool } = pkg;
 
-if (!process.env.DATABASE_URL) {
-  console.error("CRITICAL ERROR: DATABASE_URL is undefined! Check your .env file.");
-} else {
-  console.log("Database connection initialized with URL length:", process.env.DATABASE_URL.length);
-}
+// Use a singleton pattern for the pool
+let pool: any = null;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+const getPool = () => {
+    if (pool) return pool;
 
-export const query = async (text: string, params?: any[]) => {
-  const start = Date.now();
-  const res = await pool.query(text, params);
-  const duration = Date.now() - start;
-  // console.log('executed query', { text, duration, rows: res.rowCount });
-  return res;
+    if (!process.env.DATABASE_URL) {
+        console.error("CRITICAL: DATABASE_URL is missing in getPool()");
+        throw new Error("DATABASE_URL environment variable is not set. Check your .env file.");
+    }
+
+    console.log("Initializing DB Pool with URL length:", process.env.DATABASE_URL.length);
+    
+    // Create new pool
+    pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+            rejectUnauthorized: false, // Required for Neon
+        },
+    });
+    
+    return pool;
 };
 
+// Lazy-loaded query function
+export const query = async (text: string, params?: any[]) => {
+  try {
+      const p = getPool();
+      const start = Date.now();
+      const res = await p.query(text, params);
+      const duration = Date.now() - start;
+      // console.log('executed query', { text, duration, rows: res.rowCount });
+      return res;
+  } catch (err) {
+      console.error('Database query error:', err);
+      throw err;
+  }
+};
+
+// Lazy-loaded client getter (for transactions)
 export const getClient = async () => {
-  const client = await pool.connect();
-  return client;
+    const p = getPool();
+    const client = await p.connect();
+    return client;
 };
