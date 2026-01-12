@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AppState, Wallet, WalletType, Transaction, TransactionType, EntityStatus } from '../types';
-import { Plus, ArrowRightLeft, Download, Trash2, CreditCard, History, ArrowDownLeft, Edit2, Save, X, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowRightLeft, Download, Trash2, CreditCard, History, ArrowDownLeft, Edit2, Save, X, AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface WalletsProps {
   state: AppState;
@@ -11,9 +11,10 @@ interface WalletsProps {
   onFundMain: (amount: number) => void;
   onEditTransaction: (id: number, updates: Partial<Transaction>) => void;
   onDeleteTransaction: (id: number) => void;
+  onSyncBalances: () => void;
 }
 
-export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWallet, onDeleteWallet, onTransfer, onFundMain, onEditTransaction, onDeleteTransaction }) => {
+export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWallet, onDeleteWallet, onTransfer, onFundMain, onEditTransaction, onDeleteTransaction, onSyncBalances }) => {
   const [showAddCard, setShowAddCard] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showFund, setShowFund] = useState(false);
@@ -304,6 +305,13 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-800">Employee Cards</h2>
         <div className="flex gap-2">
+          <button
+            onClick={onSyncBalances}
+            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
+            title="Recalculate balances from transaction history"
+          >
+            <RefreshCw size={18} /> Sync Balances
+          </button>
           <button
             onClick={() => {
               setShowTransfer(true);

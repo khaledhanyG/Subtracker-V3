@@ -7,6 +7,43 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
 
   try {
     if (req.method === 'POST') {
+      const { action } = req.body;
+
+      // RECONCILE BALANCES LOGIC
+      if (action === 'RECONCILE') {
+        await query('BEGIN');
+
+        // 1. Reset all wallets to 0 (optional if the next query handles everything, but safer to be explicit conceptually, though SQL below covers it)
+        // 2. Calculate sum input/output for each wallet
+        const reconcileQuery = `
+          WITH wallet_sums AS (
+            SELECT 
+              w.id,
+              COALESCE(SUM(
+                CASE 
+                  WHEN t.to_wallet_id = w.id THEN t.amount 
+                  WHEN t.from_wallet_id = w.id THEN -t.amount 
+                  ELSE 0 
+                END
+              ), 0) as computed_balance
+            FROM wallets w
+            LEFT JOIN transactions t ON (t.from_wallet_id = w.id OR t.to_wallet_id = w.id)
+            WHERE w.user_id = $1
+            GROUP BY w.id
+          )
+          UPDATE wallets
+          SET balance = wallet_sums.computed_balance
+          FROM wallet_sums
+          WHERE wallets.id = wallet_sums.id AND wallets.user_id = $1
+          RETURNING wallets.*;
+        `;
+
+        const result = await query(reconcileQuery, [userId]);
+        await query('COMMIT');
+        return res.status(200).json(result.rows);
+      }
+
+      // Normal Create Wallet
       const { name, type, balance, holderName, status } = req.body;
       const result = await query(
         'INSERT INTO wallets (user_id, name, type, balance, holder_name, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
@@ -21,7 +58,7 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
       const keys = Object.keys(updates);
       if (keys.length === 0) return res.status(400).json({ error: 'No updates provided' });
 
-      const setClause = keys.map((key, index) => `${ key === 'holderName' ? 'holder_name' : key } = $${index + 2}`).join(', ');
+      const setClause = keys.map((key, index) => `${key === 'holderName' ? 'holder_name' : key} = $${index + 2}`).join(', ');
       const values = keys.map(key => updates[key]);
 
       const result = await query(

@@ -126,7 +126,22 @@ function AppContent() {
     try {
       await api.delete(`/wallets?id=${id}`);
       loadData();
+      loadData();
     } catch (e) { console.error(e); alert('Failed to delete wallet'); }
+  };
+
+  const syncWalletBalances = async () => {
+    try {
+      const confirmSync = confirm("This will recalculate all wallet balances based on the transaction history. Continue?");
+      if (!confirmSync) return;
+
+      await api.post('/wallets', { action: 'RECONCILE' });
+      alert("Balances Synchronized Successfully!");
+      loadData();
+    } catch (e: any) {
+      console.error(e);
+      alert('Failed to sync balances: ' + (e.response?.data?.error || e.message));
+    }
   };
 
   const fundMainWallet = async (amount: number) => {
@@ -371,6 +386,7 @@ function AppContent() {
                 onFundMain={fundMainWallet}
                 onEditTransaction={editTransaction}
                 onDeleteTransaction={deleteTransaction}
+                onSyncBalances={syncWalletBalances}
               />
             )}
             {activeTab === 'subscriptions' && (
