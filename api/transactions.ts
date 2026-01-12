@@ -141,9 +141,19 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
                    date = $2, 
                    description = $3,
                    from_wallet_id = $4,
-                   to_wallet_id = $5
-                 WHERE id = $6 AND user_id = $7`,
-        [amount, date, description, fromWalletId, toWalletId, id, userId]
+                   to_wallet_id = $5,
+                   subscription_id = $6
+                 WHERE id = $7 AND user_id = $8`,
+        [
+          amount,
+          date,
+          description,
+          fromWalletId || null,
+          toWalletId || null,
+          req.body.subscriptionId || null,
+          id,
+          userId
+        ]
       );
 
       // 4. Apply New Effect

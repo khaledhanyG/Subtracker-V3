@@ -394,9 +394,18 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
     return s ? s.name : 'Unknown Service';
   };
 
-  const filteredSubs = state.subscriptions.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSubs = state.subscriptions
+    .filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => {
+      // 1. Sort by Status (ACTIVE first)
+      if (a.status === EntityStatus.ACTIVE && b.status !== EntityStatus.ACTIVE) return -1;
+      if (a.status !== EntityStatus.ACTIVE && b.status === EntityStatus.ACTIVE) return 1;
+
+      // 2. Sort by Next Renewal Date (ASC)
+      const dateA = new Date(a.nextRenewalDate).getTime();
+      const dateB = new Date(b.nextRenewalDate).getTime();
+      return dateA - dateB;
+    });
 
   let paymentHistory = state.transactions
     .filter(t => t.type === TransactionType.SUBSCRIPTION_PAYMENT || t.type === TransactionType.REFUND)
