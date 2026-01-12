@@ -121,22 +121,21 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
             await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [oldAmount, oldTx.from_wallet_id]);
             await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [oldAmount, oldTx.to_wallet_id]);
           }
+        } else if (oldTx.type === 'SUBSCRIPTION_PAYMENT') {
+          if (oldTx.from_wallet_id) {
+            await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [oldAmount, oldTx.from_wallet_id]);
+          }
+        } else if (oldTx.type === 'REFUND') {
+          if (oldTx.to_wallet_id) {
+            await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [oldAmount, oldTx.to_wallet_id]);
+          }
         }
-      } else if (oldTx.type === 'SUBSCRIPTION_PAYMENT') {
-        if (oldTx.from_wallet_id) {
-          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [oldAmount, oldTx.from_wallet_id]);
-        }
-      } else if (oldTx.type === 'REFUND') {
-        if (oldTx.to_wallet_id) {
-          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [oldAmount, oldTx.to_wallet_id]);
-        }
-      }
 
-      // 3. Update Transaction Record
-      // We only support updating fields that are passed. 
-      // Ideally we should validate 'type' consistency but assuming type doesn't change for now or is handled safely.
-      await client.query(
-        `UPDATE transactions SET 
+        // 3. Update Transaction Record
+        // We only support updating fields that are passed. 
+        // Ideally we should validate 'type' consistency but assuming type doesn't change for now or is handled safely.
+        await client.query(
+          `UPDATE transactions SET 
                    amount = $1, 
                    date = $2, 
                    description = $3,
@@ -144,99 +143,101 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
                    to_wallet_id = $5,
                    subscription_id = $6
                  WHERE id = $7 AND user_id = $8`,
-        [
-          amount,
-          date,
-          description,
-          fromWalletId || null,
-          toWalletId || null,
-          req.body.subscriptionId || null,
-          id,
-          userId
-        ]
-      );
+          [
+            amount,
+            date,
+            description,
+            fromWalletId || null,
+            toWalletId || null,
+            req.body.subscriptionId || null,
+            id,
+            userId
+          ]
+        );
 
-      // 4. Apply New Effect
-      // Use the new values (or fallbacks if valid partial updates were allowed, but frontend sends full object)
-      // Assuming frontend sends the full new state including type (even if type matching oldTx)
-      const newAmount = parseFloat(amount);
+        // 4. Apply New Effect
+        // Use the new values (or fallbacks if valid partial updates were allowed, but frontend sends full object)
+        // Assuming frontend sends the full new state including type (even if type matching oldTx)
+        const newAmount = parseFloat(amount);
 
-      // We use oldTx.type ensure we don't accidentally change type logic unless intended. 
-      // If type can change, we should use `type` from body.
-      const txType = type || oldTx.type;
+        // We use oldTx.type ensure we don't accidentally change type logic unless intended. 
+        // If type can change, we should use `type` from body.
+        const txType = type || oldTx.type;
 
-      if (txType === 'DEPOSIT_FROM_BANK') {
-        if (!toWalletId) throw new Error("Target wallet ID required");
-        await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
-      } else if (txType === 'INTERNAL_TRANSFER') {
-        if (!fromWalletId || !toWalletId) throw new Error("Source and Dest wallets required");
-        await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [newAmount, fromWalletId]);
-        await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
-      } else if (txType === 'SUBSCRIPTION_PAYMENT') {
-        if (!fromWalletId) throw new Error("Source wallet ID required for payment");
-        await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [newAmount, fromWalletId]);
-      } else if (txType === 'REFUND') {
-        if (!toWalletId) throw new Error("Target wallet ID required for refund");
-        await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
-      }
+        if (txType === 'DEPOSIT_FROM_BANK') {
+          if (!toWalletId) throw new Error("Target wallet ID required");
+          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
+        } else if (txType === 'INTERNAL_TRANSFER') {
+          if (!fromWalletId || !toWalletId) throw new Error("Source and Dest wallets required");
+          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [newAmount, fromWalletId]);
+          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
+        } else if (txType === 'SUBSCRIPTION_PAYMENT') {
+          if (!fromWalletId) throw new Error("Source wallet ID required for payment");
+          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [newAmount, fromWalletId]);
+        } else if (txType === 'REFUND') {
+          if (!toWalletId) throw new Error("Target wallet ID required for refund");
+          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
+        }
 
-      await client.query('COMMIT');
+        await client.query('COMMIT');
 
-      // Return updated
-      const updatedTx = await client.query('SELECT * FROM transactions WHERE id = $1', [id]);
-      return res.status(200).json(updatedTx.rows[0]);
+        // Return updated
+        const updatedTx = await client.query('SELECT * FROM transactions WHERE id = $1', [id]);
+        return res.status(200).json(updatedTx.rows[0]);
 
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    }
-  }
-    if (req.method === 'DELETE') {
-    const { id } = req.query;
-
-    try {
-      await client.query('BEGIN');
-
-      // Get original transaction
-      const txResult = await client.query('SELECT * FROM transactions WHERE id = $1 AND user_id = $2', [id, userId]);
-      if (txResult.rowCount === 0) {
+      } catch (e: any) {
         await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Transaction not found' });
+        console.error("Update Transaction Error:", e);
+        return res.status(500).json({ error: e.message || String(e) });
       }
-      const tx = txResult.rows[0];
-      const amount = parseFloat(tx.amount); // Ensure number
-
-      // Reverse effects
-      if (tx.type === 'DEPOSIT_FROM_BANK') {
-        await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [amount, tx.to_wallet_id]);
-      } else if (tx.type === 'INTERNAL_TRANSFER') {
-        await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [amount, tx.from_wallet_id]);
-        await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [amount, tx.to_wallet_id]);
-      } else if (tx.type === 'SUBSCRIPTION_PAYMENT') {
-        await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [amount, tx.from_wallet_id]);
-        // Should we revert subscription dates? Hard to know what previous date was. 
-        // For now, only revert money.
-      } else if (tx.type === 'REFUND') {
-        await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [amount, tx.to_wallet_id]);
-      }
-
-      await client.query('DELETE FROM transactions WHERE id = $1', [id]);
-
-      await client.query('COMMIT');
-      return res.status(200).json({ success: true });
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
     }
-  }
+    if (req.method === 'DELETE') {
+      const { id } = req.query;
 
-  return res.status(405).json({ error: 'Method not allowed' });
-} catch (error: any) {
-  console.error('Transactions API error:', error);
-  return res.status(500).json({ error: error.message || 'Internal server error' });
-} finally {
-  client.release();
-}
+      try {
+        await client.query('BEGIN');
+
+        // Get original transaction
+        const txResult = await client.query('SELECT * FROM transactions WHERE id = $1 AND user_id = $2', [id, userId]);
+        if (txResult.rowCount === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Transaction not found' });
+        }
+        const tx = txResult.rows[0];
+        const amount = parseFloat(tx.amount); // Ensure number
+
+        // Reverse effects
+        if (tx.type === 'DEPOSIT_FROM_BANK') {
+          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [amount, tx.to_wallet_id]);
+        } else if (tx.type === 'INTERNAL_TRANSFER') {
+          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [amount, tx.from_wallet_id]);
+          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [amount, tx.to_wallet_id]);
+        } else if (tx.type === 'SUBSCRIPTION_PAYMENT') {
+          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [amount, tx.from_wallet_id]);
+          // Should we revert subscription dates? Hard to know what previous date was. 
+          // For now, only revert money.
+        } else if (tx.type === 'REFUND') {
+          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [amount, tx.to_wallet_id]);
+        }
+
+        await client.query('DELETE FROM transactions WHERE id = $1', [id]);
+
+        await client.query('COMMIT');
+        return res.status(200).json({ success: true });
+      } catch (e: any) {
+        await client.query('ROLLBACK');
+        console.error("Delete Transaction Error:", e);
+        return res.status(500).json({ error: e.message || String(e) });
+      }
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error: any) {
+    console.error('Transactions API error:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
+  } finally {
+    client.release();
+  }
 };
 
 export default authenticated(handler);

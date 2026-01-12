@@ -172,7 +172,8 @@ function AppContent() {
       loadData();
     } catch (e: any) {
       console.error(e);
-      const msg = e.response?.data?.error || e.message || 'Failed to update transaction';
+      let msg = e.response?.data?.error || e.message || 'Failed to update transaction';
+      if (typeof msg === 'object') msg = JSON.stringify(msg);
       alert(`Error: ${msg}`);
     }
   };
