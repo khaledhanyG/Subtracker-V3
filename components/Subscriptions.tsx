@@ -300,17 +300,21 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
     setEditTxData({
       amount: tx.amount.toString(),
       date: tx.date.split('T')[0],
-      walletId: tx.fromWalletId || '',
-      subId: tx.subscriptionId || ''
+      walletId: tx.fromWalletId || tx.toWalletId || '',
+      subId: (tx.subscriptionId || '').toString()
     });
   };
 
   const saveEditingTx = () => {
     if (editingTxId) {
+      const tx = state.transactions.find(t => t.id === editingTxId);
+      const isRefund = tx?.type === TransactionType.REFUND;
+
       onEditTransaction(editingTxId, {
         amount: parseFloat(editTxData.amount),
         date: new Date(editTxData.date).toISOString(),
-        fromWalletId: editTxData.walletId,
+        fromWalletId: isRefund ? undefined : editTxData.walletId,
+        toWalletId: isRefund ? editTxData.walletId : undefined,
         subscriptionId: editTxData.subId ? parseInt(editTxData.subId) : undefined
       });
       setEditingTxId(null);
