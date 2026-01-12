@@ -170,7 +170,11 @@ function AppContent() {
     try {
       await api.put('/transactions', { id: txId, ...updates });
       loadData();
-    } catch (e) { console.error(e); alert('Failed to update transaction'); }
+    } catch (e: any) {
+      console.error(e);
+      const msg = e.response?.data?.error || e.message || 'Failed to update transaction';
+      alert(`Error: ${msg}`);
+    }
   };
 
   const deleteTransaction = async (txId: number) => {
