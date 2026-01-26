@@ -396,19 +396,22 @@ function AppContent() {
       <nav className="bg-[#1e1b4b] border-b border-indigo-900 sticky top-0 z-20 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-4">
               {/* Logo */}
               <div className="flex-shrink-0 flex items-center gap-2">
                 <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-2 rounded-lg shadow-inner">
                   <LayoutGrid size={24} strokeWidth={2.5} />
                 </div>
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200 hidden md:block">
                   SubTrack AI
+                </span>
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200 md:hidden">
+                  AI
                 </span>
               </div>
 
               {/* Navigation Items */}
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-2">
+              <div className="hidden sm:ml-4 sm:flex sm:space-x-1 lg:space-x-2">
                 <NavButton
                   label="Dashboard"
                   icon={LayoutDashboard}
@@ -417,7 +420,7 @@ function AppContent() {
                   setActiveTab={setActiveTab}
                 />
                 <NavButton
-                  label="Wallets & Funds"
+                  label="Wallets"
                   icon={WalletIcon}
                   id="wallets"
                   activeTab={activeTab}
@@ -445,7 +448,7 @@ function AppContent() {
                   setActiveTab={setActiveTab}
                 />
                 <NavButton
-                  label="INACTIVE CARDS"
+                  label="Archive"
                   icon={Archive}
                   id="inactive_cards"
                   activeTab={activeTab}
