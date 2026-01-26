@@ -467,30 +467,15 @@ function AppContent() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="hidden md:flex flex-col items-end mr-4">
-                <span className="text-xs font-medium text-gray-500">
-                  Total Balance
-                </span>
-                <span className="text-sm font-bold text-indigo-600">
-                  {state.wallets
-                    .reduce((acc, w) => acc + parseFloat(w.balance as any), 0)
-                    .toLocaleString()}{" "}
-                  SAR
-                </span>
+              <div className="hidden md:flex flex-col items-end mr-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-1.5 rounded-lg shadow-sm">
+                 <span className="text-[10px] font-medium opacity-90 uppercase tracking-wider">Total Balance</span>
+                 <span className="text-sm font-bold">{state.wallets.reduce((acc, w) => acc + parseFloat(w.balance as any), 0).toLocaleString()} SAR</span>
               </div>
               <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">
-                  U
-                </div>
-                <span className="text-sm font-medium text-gray-700">
-                  {user?.name || "User"}
-                </span>
+                <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">U</div>
+                <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>
               </div>
-              <button
-                onClick={handleLogout}
-                className="text-gray-400 hover:text-red-600 transition p-2"
-                title="Logout"
-              >
+              <button onClick={handleLogout} className="text-gray-400 hover:text-red-600 transition p-2" title="Logout">
                 <LogOut size={20} />
               </button>
             </div>
@@ -595,10 +580,10 @@ function AppContent() {
 const NavButton = ({ label, icon: Icon, id, activeTab, setActiveTab }: any) => (
   <button
     onClick={() => setActiveTab(id)}
-    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition-colors ${
+    className={`inline-flex items-center px-3 pt-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap ${
       activeTab === id
-        ? "border-indigo-500 text-gray-900"
-        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+        ? "border-indigo-500 text-indigo-700 bg-indigo-50/50"
+        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 hover:bg-gray-50"
     }`}
   >
     <Icon size={16} className="mr-2" />
