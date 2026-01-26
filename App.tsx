@@ -445,13 +445,6 @@ function AppContent() {
                   setActiveTab={setActiveTab}
                 />
                 <NavButton
-                  label="Invoice OCR"
-                  icon={FileText}
-                  id="ocr"
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                />
-                <NavButton
                   label="INACTIVE CARDS"
                   icon={Archive}
                   id="inactive_cards"
