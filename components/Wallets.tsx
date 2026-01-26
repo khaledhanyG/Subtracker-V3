@@ -484,7 +484,7 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
             >
               <option value="">All Wallets</option>
-              {allWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+              {activeWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
 
             {/* Date Range */}

@@ -1057,7 +1057,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
                   onChange={e => setFilterWalletId(e.target.value)}
                 >
                   <option value="">-- All Cards --</option>
-                  {state.wallets.filter(w => w.type === WalletType.EMPLOYEE).map(w => (
+                  {state.wallets.filter(w => w.type === WalletType.EMPLOYEE && w.status === EntityStatus.ACTIVE).map(w => (
                     <option key={w.id} value={w.id}>{w.name}</option>
                   ))}
                 </select>
