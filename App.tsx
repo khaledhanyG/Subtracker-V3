@@ -16,6 +16,7 @@ import {
 } from "./types";
 import { LayoutDashboard, Wallet as WalletIcon, List, PieChart, BookOpen, FileText, Settings, LogOut, LayoutGrid, Archive, Loader2 } from 'lucide-react';
 import api, { clearToken } from "./services/api";
+import { SettingsModal } from "./components/SettingsModal";
 
 const INITIAL_STATE: AppState = {
   wallets: [],
@@ -43,7 +44,8 @@ function AppContent() {
 
   // Data State
   const [state, setState] = useState<AppState>(INITIAL_STATE);
-  const [loadingData, setLoadingData] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "wallets" | "subscriptions" | "departments" | "qoyod" | "ocr" | "inactive_cards"
@@ -67,7 +69,7 @@ function AppContent() {
   };
 
   const loadData = async () => {
-    setLoadingData(true);
+    setLoading(true);
     try {
       const res = await api.get("/data");
       const fixNumbers = (item: any, fields: string[]) => {
@@ -99,7 +101,7 @@ function AppContent() {
       console.error("Failed to load data", e);
       // If 401, logout
     } finally {
-      setLoadingData(false);
+      setLoading(false);
     }
   };
 
@@ -458,17 +460,22 @@ function AppContent() {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3 bg-indigo-800/50 px-3 py-1.5 rounded-full border border-indigo-700/50">
-                <div className="h-8 w-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-100 font-bold text-xs ring-1 ring-indigo-400/30">U</div>
-                <div className="flex flex-col">
-                   <span className="text-sm font-bold text-white leading-none mb-0.5">{user?.name?.toUpperCase() || 'USER'}</span>
-                   <span className="text-[10px] text-indigo-300 font-medium tracking-wider">ADMIN</span>
+              <button 
+                onClick={() => setShowSettingsModal(true)}
+                className="flex items-center gap-3 bg-indigo-800/50 hover:bg-indigo-700/50 p-1.5 pr-4 rounded-full border border-indigo-700/50 transition-all group"
+              >
+                <div className="bg-indigo-600 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-lg group-hover:bg-indigo-500 transition">
+                  {user?.name?.charAt(0).toUpperCase() || 'U'}
                 </div>
-              </div>
+                <div className="text-left hidden md:block">
+                  <div className="text-xs font-bold text-white leading-tight">{user?.name}</div>
+                  <div className="text-[10px] text-indigo-200">ADMIN</div>
+                </div>
+              </button>
               <button
                 onClick={handleLogout}
-                className="p-2 rounded-full text-indigo-300 hover:text-white hover:bg-indigo-800 transition-colors"
-                title="Sign Out"
+                className="text-indigo-300 hover:text-white p-2 rounded-lg transition-colors"
+                title="Logout"
               >
                 <LogOut size={20} />
               </button>
@@ -476,6 +483,15 @@ function AppContent() {
           </div>
         </div>
       </nav>
+
+      {/* Settings Modal */}
+      {showSettingsModal && user && (
+        <SettingsModal
+          currentUser={{ name: user.name, email: user.email, id: user.id }}
+          onClose={() => setShowSettingsModal(false)}
+          onUpdateUser={(updatedUser) => setUser({ ...user, ...updatedUser })}
+        />
+      )}
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -500,7 +516,7 @@ function AppContent() {
           </p>
         </header>
 
-        {loadingData ? (
+        {loading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="animate-spin text-indigo-600" size={48} />
           </div>
