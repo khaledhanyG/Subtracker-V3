@@ -2,7 +2,7 @@
 import React from 'react';
 import { AppState, AllocationType, WalletType, Subscription, TransactionType } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
-import { DollarSign, AlertCircle, Wallet as WalletIcon, Users, CreditCard, FileSpreadsheet, Printer } from 'lucide-react';
+import { DollarSign, AlertCircle, Wallet as WalletIcon, Users, CreditCard, FileSpreadsheet, Printer, ChevronRight } from 'lucide-react';
 import { analyzeSpending } from '../services/geminiService';
 
 interface DashboardProps {
@@ -12,6 +12,14 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const [insight, setInsight] = React.useState<string | null>(null);
   const [loadingInsight, setLoadingInsight] = React.useState(false);
+  const [expandedDepts, setExpandedDepts] = React.useState<Set<string>>(new Set());
+
+  const toggleDept = (id: string) => {
+    const newSet = new Set(expandedDepts);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setExpandedDepts(newSet);
+  };
 
   // Calculate Total Monthly Spend (normalized)
   const totalMonthlySpend = state.subscriptions.reduce((acc, sub) => {
@@ -290,69 +298,72 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         )}
       </div>
 
-      {/* Departmental Subscription Board */}
-      <div className="print-section overflow-x-auto pb-4">
-        <div className="min-w-max">
-          <div className="flex justify-between items-center mb-4 px-1">
-            <h3 className="text-lg font-bold text-gray-800">Departmental Overview</h3>
-            <div className="flex gap-2 no-print">
-              <button onClick={exportToExcel} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition">
-                <FileSpreadsheet size={16} /> Export Excel
-              </button>
-              <button onClick={exportToPdf} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded hover:bg-gray-100 transition">
-                <Printer size={16} /> Print / PDF
-              </button>
-            </div>
+      {/* Departmental Subscription Board (Accordion) */}
+      <div className="print-section space-y-4">
+        <div className="flex justify-between items-center px-1">
+          <h3 className="text-lg font-bold text-gray-800">Departmental Overview</h3>
+          <div className="flex gap-2 no-print">
+            <button onClick={exportToExcel} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition">
+              <FileSpreadsheet size={16} /> Export Excel
+            </button>
+            <button onClick={exportToPdf} className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-50 text-gray-700 border border-gray-200 rounded hover:bg-gray-100 transition">
+              <Printer size={16} /> Print / PDF
+            </button>
           </div>
+        </div>
 
-          <div className="flex gap-4 flex-wrap justify-start">
+        <div className="space-y-4">
+          {/* Render Accordion for each department */}
+          {[...state.departments, { id: 'SHARED', name: 'Shared / Split', color: '#4b5563' } as any].map(dept => {
+             const isShared = dept.id === 'SHARED';
+             const subs = subGroups[dept.id] || [];
+             const deptTotal = isShared 
+               ? subs.reduce((acc, s) => acc + getSubTotalPaid(s.id), 0) // Approximation for shared visualization
+               : (deptTotalPaidMap.get(dept.id) || 0);
+             
+             const isExpanded = expandedDepts.has(dept.id);
 
-            {/* Render columns for each department */}
-            {state.departments.map(dept => {
-              const deptTotal = deptTotalPaidMap.get(dept.id) || 0;
-              return (
-                <div key={dept.id} className="w-80 flex-shrink-0 bg-gray-50 rounded-xl border border-gray-200 flex flex-col max-h-[600px]">
-                  {/* Header */}
-                  <div className="p-4 border-b border-gray-200 bg-white rounded-t-xl sticky top-0 z-10" style={{ borderTop: `4px solid ${dept.color}` }}>
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-bold text-gray-800">{dept.name}</h4>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{subGroups[dept.id]?.length || 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
-                      <span className="text-[10px] text-gray-400 uppercase font-semibold">Total Expense</span>
-                      <span className="text-sm font-bold text-gray-700">{deptTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</span>
-                    </div>
-                  </div>
-                  {/* Cards */}
-                  <div className="p-2 space-y-2 overflow-y-auto">
-                    {subGroups[dept.id]?.length === 0 ? (
-                      <div className="text-center py-8 text-gray-400 text-xs italic">No unique subscriptions</div>
-                    ) : (
-                      subGroups[dept.id].map(sub => renderCompactCard(sub))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+             return (
+               <div key={dept.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-200">
+                 {/* Accordion Header */}
+                 <button 
+                   onClick={() => toggleDept(dept.id)}
+                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
+                   style={{ borderLeft: `6px solid ${dept.color}` }}
+                 >
+                   <div className="flex items-center gap-4">
+                     <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                       <ChevronRight size={20} className="text-gray-400" />
+                     </div>
+                     <div>
+                       <h4 className="font-bold text-gray-800 text-lg">{dept.name}</h4>
+                       <p className="text-xs text-gray-500 mt-0.5">{subs.length} Subscriptions</p>
+                     </div>
+                   </div>
+                   
+                   <div className="flex items-center gap-6">
+                     <div className="text-right">
+                       <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Expense</p>
+                       <p className="text-base font-bold text-gray-700">{deptTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</p>
+                     </div>
+                   </div>
+                 </button>
 
-            {/* Shared Column */}
-            <div className="w-80 flex-shrink-0 bg-gray-50 rounded-xl border border-gray-200 flex flex-col max-h-[600px]">
-              <div className="p-4 border-b border-gray-200 bg-white rounded-t-xl sticky top-0 z-10 border-t-4 border-gray-600">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-bold text-gray-800">Shared / Split</h4>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{subGroups['SHARED']?.length || 0}</span>
-                </div>
-              </div>
-              <div className="p-2 space-y-2 overflow-y-auto">
-                {subGroups['SHARED']?.length === 0 ? (
-                  <div className="text-center py-8 text-gray-400 text-xs italic">No shared subscriptions</div>
-                ) : (
-                  subGroups['SHARED'].map(sub => renderCompactCard(sub, true))
-                )}
-              </div>
-            </div>
-
-          </div>
+                 {/* Accordion Content */}
+                 {isExpanded && (
+                   <div className="p-4 bg-gray-50 border-t border-gray-100 animation-expand">
+                     {subs.length === 0 ? (
+                       <div className="text-center py-8 text-gray-400 text-sm italic">No subscriptions found for this department.</div>
+                     ) : (
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                         {subs.map(sub => renderCompactCard(sub, isShared))}
+                       </div>
+                     )}
+                   </div>
+                 )}
+               </div>
+             );
+          })}
         </div>
       </div>
 
