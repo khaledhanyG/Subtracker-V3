@@ -12,9 +12,10 @@ interface WalletsProps {
   onEditTransaction: (id: number, updates: Partial<Transaction>) => void;
   onDeleteTransaction: (id: number) => void;
   onSyncBalances: () => void;
+  showInactive?: boolean;
 }
 
-export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWallet, onDeleteWallet, onTransfer, onFundMain, onEditTransaction, onDeleteTransaction, onSyncBalances }) => {
+export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWallet, onDeleteWallet, onTransfer, onFundMain, onEditTransaction, onDeleteTransaction, onSyncBalances, showInactive = false }) => {
   const [showAddCard, setShowAddCard] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [showFund, setShowFund] = useState(false);
@@ -63,7 +64,7 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
   const [filterEndDate, setFilterEndDate] = useState('');
 
   const mainWallet = state.wallets.find(w => w.type === WalletType.MAIN);
-  const employeeWallets = state.wallets.filter(w => w.type === WalletType.EMPLOYEE);
+  const employeeWallets = state.wallets.filter(w => w.type === WalletType.EMPLOYEE && (showInactive ? w.status === EntityStatus.INACTIVE : w.status === EntityStatus.ACTIVE));
   const allWallets = state.wallets;
 
   const relevantTransactions = state.transactions
@@ -266,6 +267,7 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
       )}
 
       {/* Main Wallet Section */}
+      {!showInactive && (
       <section className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-8 text-white shadow-lg">
         <div className="flex justify-between items-start">
           <div>
@@ -300,6 +302,7 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
           </form>
         )}
       </section>
+      )}
 
       {/* Internal Transfers Action */}
       <div className="flex justify-between items-center">

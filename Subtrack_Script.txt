@@ -1,0 +1,4 @@
+I have web app on "D:\myApps\Subtracker-V3", everytime we make update i need to commit to GitHub "https://github.com/khaledhanyG/subtracker-V3", the database on neon DB string is "postgresql://neondb_owner:npg_mMLSva9YQ5Eu@ep-blue-leaf-ahtstx2d-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require" and this web app is on Vercel deployment.
+
+
+
