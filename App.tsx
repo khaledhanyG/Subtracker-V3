@@ -467,10 +467,6 @@ function AppContent() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="hidden md:flex flex-col items-end mr-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-1.5 rounded-lg shadow-sm">
-                 <span className="text-[10px] font-medium opacity-90 uppercase tracking-wider">Total Balance</span>
-                 <span className="text-sm font-bold">{state.wallets.reduce((acc, w) => acc + parseFloat(w.balance as any), 0).toLocaleString()} SAR</span>
-              </div>
               <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
                 <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">U</div>
                 <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>

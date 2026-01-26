@@ -305,7 +305,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
             </div>
           </div>
 
-          <div className="flex gap-4 flex-nowrap">
+          <div className="flex gap-4 flex-wrap justify-start">
 
             {/* Render columns for each department */}
             {state.departments.map(dept => {
