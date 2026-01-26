@@ -66,6 +66,7 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
   const mainWallet = state.wallets.find(w => w.type === WalletType.MAIN);
   const employeeWallets = state.wallets.filter(w => w.type === WalletType.EMPLOYEE && (showInactive ? w.status === EntityStatus.INACTIVE : w.status === EntityStatus.ACTIVE));
   const allWallets = state.wallets;
+  const activeWallets = state.wallets.filter(w => w.status === EntityStatus.ACTIVE);
 
   const relevantTransactions = state.transactions
     .filter(t => t.type !== TransactionType.SUBSCRIPTION_PAYMENT)
@@ -346,7 +347,7 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
                 className="w-full border border-indigo-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               >
                 <option value="">-- Select Source --</option>
-                {allWallets.map(w => (
+                {activeWallets.map(w => (
                   <option key={w.id} value={w.id}>{w.name} ({w.balance.toLocaleString()} SAR)</option>
                 ))}
               </select>
@@ -363,7 +364,7 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
                 className="w-full border border-indigo-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               >
                 <option value="">-- Select Destination --</option>
-                {allWallets.filter(w => w.id !== transferFromId).map(w => (
+                {activeWallets.filter(w => w.id !== transferFromId).map(w => (
                   <option key={w.id} value={w.id}>{w.name} ({w.balance.toLocaleString()} SAR)</option>
                 ))}
               </select>
@@ -558,13 +559,13 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
                               <div className="flex items-center gap-1 text-xs">
                                 <span>From:</span>
                                 <select value={editTxData.fromId} onChange={e => setEditTxData({ ...editTxData, fromId: e.target.value })} className="border rounded p-1 w-32">
-                                  {allWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                  {activeWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                                 </select>
                               </div>
                               <div className="flex items-center gap-1 text-xs">
                                 <span>To:</span>
                                 <select value={editTxData.toId} onChange={e => setEditTxData({ ...editTxData, toId: e.target.value })} className="border rounded p-1 w-32">
-                                  {allWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                  {activeWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                                 </select>
                               </div>
                             </div>
@@ -572,7 +573,7 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
                             <div className="flex items-center gap-1 text-xs">
                               <span>To:</span>
                               <select value={editTxData.toId} onChange={e => setEditTxData({ ...editTxData, toId: e.target.value })} className="border rounded p-1 w-32">
-                                {allWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                                {activeWallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                               </select>
                             </div>
                           ) : (

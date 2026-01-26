@@ -14,16 +14,7 @@ import {
   Account,
   Subscription,
 } from "./types";
-import {
-  LayoutDashboard,
-  WalletCards,
-  List,
-  Users,
-  BookOpen,
-  FileText,
-  LogOut,
-  Loader2,
-} from "lucide-react";
+import { LayoutDashboard, Wallet as WalletIcon, List, PieChart, BookOpen, FileText, Settings, LogOut, LayoutGrid, Archive, Loader2 } from 'lucide-react';
 import api, { clearToken } from "./services/api";
 
 const INITIAL_STATE: AppState = {
@@ -402,19 +393,22 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex flex-col">
       {/* Top Navbar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+      <nav className="bg-[#1e1b4b] border-b border-indigo-900 sticky top-0 z-20 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center gap-2 text-indigo-600 mr-8">
-                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">
-                  S
+            <div className="flex items-center gap-8">
+              {/* Logo */}
+              <div className="flex-shrink-0 flex items-center gap-2">
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-2 rounded-lg shadow-inner">
+                  <LayoutGrid size={24} strokeWidth={2.5} />
                 </div>
-                <span className="text-xl font-bold tracking-tight text-gray-900">
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">
                   SubTrack AI
                 </span>
               </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
+
+              {/* Navigation Items */}
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-2">
                 <NavButton
                   label="Dashboard"
                   icon={LayoutDashboard}
@@ -424,7 +418,7 @@ function AppContent() {
                 />
                 <NavButton
                   label="Wallets & Funds"
-                  icon={WalletCards}
+                  icon={WalletIcon}
                   id="wallets"
                   activeTab={activeTab}
                   setActiveTab={setActiveTab}
@@ -438,7 +432,7 @@ function AppContent() {
                 />
                 <NavButton
                   label="Departments"
-                  icon={Users}
+                  icon={PieChart}
                   id="departments"
                   activeTab={activeTab}
                   setActiveTab={setActiveTab}
@@ -459,19 +453,27 @@ function AppContent() {
                 />
                 <NavButton
                   label="INACTIVE CARDS"
-                  icon={LogOut}
+                  icon={Archive}
                   id="inactive_cards"
                   activeTab={activeTab}
                   setActiveTab={setActiveTab}
                 />
               </div>
             </div>
+
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                <div className="h-6 w-6 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">U</div>
-                <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>
+              <div className="flex items-center gap-3 bg-indigo-800/50 px-3 py-1.5 rounded-full border border-indigo-700/50">
+                <div className="h-8 w-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-100 font-bold text-xs ring-1 ring-indigo-400/30">U</div>
+                <div className="flex flex-col">
+                   <span className="text-sm font-bold text-white leading-none mb-0.5">{user?.name?.toUpperCase() || 'USER'}</span>
+                   <span className="text-[10px] text-indigo-300 font-medium tracking-wider">ADMIN</span>
+                </div>
               </div>
-              <button onClick={handleLogout} className="text-gray-400 hover:text-red-600 transition p-2" title="Logout">
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-full text-indigo-300 hover:text-white hover:bg-indigo-800 transition-colors"
+                title="Sign Out"
+              >
                 <LogOut size={20} />
               </button>
             </div>
@@ -482,22 +484,23 @@ function AppContent() {
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 capitalize">
-            {activeTab === "ocr"
-              ? "Invoice OCR Scanner"
-              : activeTab === "inactive_cards"
-                ? "Inactive Employee Cards"
-                : activeTab === "wallets"
-                  ? "Wallets & Funds"
-                  : activeTab}
+          <h1 className="text-3xl font-bold text-gray-900">
+            {activeTab === "dashboard" && "Financial Dashboard"}
+            {activeTab === "wallets" && "Wallets & Cards"}
+            {activeTab === "inactive_cards" && "Inactive Cards Archive"}
+            {activeTab === "subscriptions" && "Subscription Management"}
+            {activeTab === "departments" && "Departments"}
+            {activeTab === "qoyod" && "Qoyod Integration"}
+            {activeTab === "ocr" && "Invoice OCR"}
           </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {new Date().toLocaleDateString(undefined, {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+          <p className="text-gray-500 mt-1 flex items-center gap-2 text-sm">
+            {activeTab === "dashboard" && "Overview of company spending and subscriptions"}
+            {activeTab === "wallets" && `Manage funds across ${state.wallets.filter(w => w.status === 'ACTIVE').length} active wallets`}
+            {activeTab === "inactive_cards" && "View history of decommissioned employee cards"}
+            {activeTab === "subscriptions" && `Tracking ${state.subscriptions.length} active subscriptions`}
+            {activeTab === "departments" && `Allocating costs across ${state.departments.length} departments`}
+            {activeTab === "qoyod" && "Sync data with Qoyod accounting software"}
+            {activeTab === "ocr" && "Scan invoices to auto-detect subscriptions"}
           </p>
         </header>
 
@@ -576,13 +579,13 @@ function AppContent() {
 const NavButton = ({ label, icon: Icon, id, activeTab, setActiveTab }: any) => (
   <button
     onClick={() => setActiveTab(id)}
-    className={`inline-flex items-center px-3 pt-1 border-b-2 text-sm font-medium transition-colors whitespace-nowrap ${
+    className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 whitespace-nowrap ${
       activeTab === id
-        ? "border-indigo-500 text-indigo-700 bg-indigo-50/50"
-        : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 hover:bg-gray-50"
+        ? "bg-white text-indigo-900 shadow-sm"
+        : "text-indigo-200 hover:bg-white/10 hover:text-white"
     }`}
   >
-    <Icon size={16} className="mr-2" />
+    <Icon size={18} className={`mr-2 ${activeTab === id ? 'text-indigo-700' : 'text-indigo-300'}`} />
     {label}
   </button>
 );
