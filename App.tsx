@@ -55,10 +55,17 @@ function AppContent() {
     const token = localStorage.getItem("subtracker_token");
     if (token) {
       try {
-        // Optionally verify token or just load data
-        await loadData();
+        // Load data first
+        const [userData, _] = await Promise.all([
+          (api as any).verifyUser(), // Fetch user details
+          loadData()
+        ]);
+        
+        if (userData && userData.user) {
+          setUser(userData.user);
+        }
+        
         setIsAuthenticated(true);
-        // You might want to decode token to get user name if not stored
       } catch (e) {
         console.error("Auth failed", e);
         clearToken();

@@ -94,4 +94,12 @@ const handleResponse = async (response: Response) => { // Placeholder
   return handleResponse(response);
 };
 
+(api as any).verifyUser = async () => {
+  const response = await fetch(`${API_URL}/auth/me`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(response);
+};
+
 export default api as any;
