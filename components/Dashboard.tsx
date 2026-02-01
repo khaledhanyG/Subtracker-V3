@@ -100,6 +100,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
       }
     });
 
+    // Sort groups: Active first, then Inactive
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => {
+        if (a.status === 'INACTIVE' && b.status !== 'INACTIVE') return 1;
+        if (a.status !== 'INACTIVE' && b.status === 'INACTIVE') return -1;
+        return 0;
+      });
+    });
+
     return groups;
   };
 
@@ -188,8 +197,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
 
   const renderCompactCard = (sub: Subscription, isShared = false) => {
     const totalPaid = getSubTotalPaid(sub.id);
+    const isInactive = sub.status === 'INACTIVE';
     return (
-      <div key={sub.id} className="bg-white px-3 py-2 rounded border border-gray-100 hover:shadow-sm transition-shadow flex items-center justify-between gap-2">
+      <div key={sub.id} className={`${isInactive ? 'bg-orange-50' : 'bg-white'} px-3 py-2 rounded border border-gray-100 hover:shadow-sm transition-shadow flex items-center justify-between gap-2`}>
         <div className="flex-1 min-w-0 truncate font-medium text-sm text-gray-800" title={sub.name}>
           {sub.name}
         </div>
