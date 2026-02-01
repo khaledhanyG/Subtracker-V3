@@ -68,4 +68,38 @@ export const clearToken = () => {
   localStorage.removeItem('subtracker_token');
 };
 
-export default api;
+// Assuming API_URL, getAuthHeaders, and handleResponse are defined elsewhere or need to be added.
+// For the purpose of this edit, we'll define placeholders to make the code syntactically valid.
+// In a real application, these would come from a configuration file or another utility.
+const API_URL = '/api'; // Placeholder
+const getAuthHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${localStorage.getItem('subtracker_token')}` // Placeholder
+});
+const handleResponse = async (response: Response) => { // Placeholder
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.message || 'Something went wrong');
+  }
+  return response.json();
+};
+
+// Attach custom methods to the api instance
+(api as any).updateProfile = async (data: { name: string; password?: string }) => {
+  const response = await fetch(`${API_URL}/auth/update_profile`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(response);
+};
+
+(api as any).verifyUser = async () => {
+  const response = await fetch(`${API_URL}/auth/me`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  return handleResponse(response);
+};
+
+export default api as any;

@@ -1,24 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Dashboard } from './components/Dashboard';
-import { Wallets } from './components/Wallets';
-import { Subscriptions } from './components/Subscriptions';
-import { Departments } from './components/Departments';
-import { Qoyod } from './components/Qoyod';
-import { InvoiceOCR } from './components/InvoiceOCR';
-import { Auth } from './components/Auth';
-import { AppState, WalletType, Wallet, Department, Account, Subscription } from './types';
-import { LayoutDashboard, WalletCards, List, Users, BookOpen, FileText, LogOut, Loader2 } from 'lucide-react';
-import api, { clearToken } from './services/api';
+import React, { useState, useEffect } from "react";
+import { Dashboard } from "./components/Dashboard";
+import { Wallets } from "./components/Wallets";
+import { Subscriptions } from "./components/Subscriptions";
+import { Departments } from "./components/Departments";
+import { Qoyod } from "./components/Qoyod";
+import { InvoiceOCR } from "./components/InvoiceOCR";
+import { Auth } from "./components/Auth";
+import {
+  AppState,
+  WalletType,
+  Wallet,
+  Department,
+  Account,
+  Subscription,
+} from "./types";
+import { LayoutDashboard, Wallet as WalletIcon, List, PieChart, BookOpen, FileText, Settings, LogOut, LayoutGrid, Archive, Loader2 } from 'lucide-react';
+import api, { clearToken } from "./services/api";
+import { SettingsModal } from "./components/SettingsModal";
 
 const INITIAL_STATE: AppState = {
   wallets: [],
   departments: [],
   accounts: [],
   subscriptions: [],
-  transactions: []
+  transactions: [],
 };
 
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 function App() {
   return (
@@ -36,18 +44,28 @@ function AppContent() {
 
   // Data State
   const [state, setState] = useState<AppState>(INITIAL_STATE);
-  const [loadingData, setLoadingData] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'wallets' | 'subscriptions' | 'departments' | 'qoyod' | 'ocr'>('dashboard');
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "wallets" | "subscriptions" | "departments" | "qoyod" | "ocr" | "inactive_cards"
+  >("dashboard");
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('subtracker_token');
+    const token = localStorage.getItem("subtracker_token");
     if (token) {
       try {
-        // Optionally verify token or just load data
-        await loadData();
+        // Load data first
+        const [userData, _] = await Promise.all([
+          (api as any).verifyUser(), // Fetch user details
+          loadData()
+        ]);
+        
+        if (userData && userData.user) {
+          setUser(userData.user);
+        }
+        
         setIsAuthenticated(true);
-        // You might want to decode token to get user name if not stored
       } catch (e) {
         console.error("Auth failed", e);
         clearToken();
@@ -58,12 +76,12 @@ function AppContent() {
   };
 
   const loadData = async () => {
-    setLoadingData(true);
+    setLoading(true);
     try {
-      const res = await api.get('/data');
+      const res = await api.get("/data");
       const fixNumbers = (item: any, fields: string[]) => {
         const newItem = { ...item };
-        fields.forEach(f => {
+        fields.forEach((f) => {
           if (newItem[f]) newItem[f] = parseFloat(newItem[f]);
         });
         return newItem;
@@ -74,17 +92,23 @@ function AppContent() {
       }
 
       setState({
-        wallets: (res.data.wallets || []).map((w: any) => fixNumbers(w, ['balance'])),
-        subscriptions: (res.data.subscriptions || []).map((s: any) => fixNumbers(s, ['id', 'baseAmount', 'lastPaymentAmount'])),
-        transactions: (res.data.transactions || []).map((t: any) => fixNumbers(t, ['amount', 'vatAmount', 'subscriptionId'])),
+        wallets: (res.data.wallets || []).map((w: any) =>
+          fixNumbers(w, ["balance"]),
+        ),
+        subscriptions: (res.data.subscriptions || []).map((s: any) =>
+          fixNumbers(s, ["id", "baseAmount", "lastPaymentAmount"]),
+        ),
+        transactions: (res.data.transactions || []).map((t: any) =>
+          fixNumbers(t, ["amount", "vatAmount", "subscriptionId"]),
+        ),
         departments: res.data.departments || [],
-        accounts: res.data.accounts || []
+        accounts: res.data.accounts || [],
       });
     } catch (e) {
       console.error("Failed to load data", e);
       // If 401, logout
     } finally {
-      setLoadingData(false);
+      setLoading(false);
     }
   };
 
@@ -109,153 +133,214 @@ function AppContent() {
 
   const addWallet = async (wallet: Wallet) => {
     try {
-      await api.post('/wallets', wallet);
+      await api.post("/wallets", wallet);
       loadData();
-    } catch (e) { console.error(e); alert('Failed to add wallet'); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to add wallet");
+    }
   };
 
   const updateWallet = async (id: string, updates: Partial<Wallet>) => {
     try {
-      await api.put('/wallets', { id, ...updates });
+      await api.put("/wallets", { id, ...updates });
       loadData();
-    } catch (e) { console.error(e); alert('Failed to update wallet'); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update wallet");
+    }
   };
 
   const deleteWallet = async (id: string) => {
-    if (!confirm('Are you sure?')) return;
+    if (!confirm("Are you sure?")) return;
     try {
       await api.delete(`/wallets?id=${id}`);
       loadData();
       loadData();
-    } catch (e) { console.error(e); alert('Failed to delete wallet'); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to delete wallet");
+    }
   };
 
   const syncWalletBalances = async () => {
     try {
-      const confirmSync = confirm("This will recalculate all wallet balances based on the transaction history. Continue?");
+      const confirmSync = confirm(
+        "This will recalculate all wallet balances based on the transaction history. Continue?",
+      );
       if (!confirmSync) return;
 
-      await api.post('/wallets', { action: 'RECONCILE' });
+      await api.post("/wallets", { action: "RECONCILE" });
       alert("Balances Synchronized Successfully!");
       loadData();
     } catch (e: any) {
       console.error(e);
-      alert('Failed to sync balances: ' + (e.response?.data?.error || e.message));
+      alert(
+        "Failed to sync balances: " + (e.response?.data?.error || e.message),
+      );
     }
   };
 
   const fundMainWallet = async (amount: number) => {
     try {
-      const mainWallet = state.wallets.find(w => w.type === 'MAIN');
+      const mainWallet = state.wallets.find((w) => w.type === "MAIN");
       if (!mainWallet) {
         alert("Main wallet not found! Please contact support.");
         return;
       }
 
-      await api.post('/transactions', {
-        type: 'DEPOSIT_FROM_BANK',
+      await api.post("/transactions", {
+        type: "DEPOSIT_FROM_BANK",
         amount,
         toWalletId: mainWallet.id,
         date: new Date().toISOString(),
-        description: 'Bank Deposit'
+        description: "Bank Deposit",
       });
       loadData();
     } catch (e: any) {
       console.error("Fund wallet error:", e);
-      const msg = e.response?.data?.error || e.message || 'Failed to fund wallet';
+      const msg =
+        e.response?.data?.error || e.message || "Failed to fund wallet";
       alert(`Error: ${msg}`);
     }
   };
 
-  const transferFunds = async (fromId: string, toId: string, amount: number, date: string) => {
+  const transferFunds = async (
+    fromId: string,
+    toId: string,
+    amount: number,
+    date: string,
+  ) => {
     try {
-      await api.post('/transactions', {
-        type: 'INTERNAL_TRANSFER',
+      await api.post("/transactions", {
+        type: "INTERNAL_TRANSFER",
         amount,
         fromWalletId: fromId,
         toWalletId: toId,
         date: date,
-        description: 'Internal Transfer'
+        description: "Internal Transfer",
       });
       loadData();
-    } catch (e) { console.error(e); alert('Transfer failed'); }
+    } catch (e) {
+      console.error(e);
+      alert("Transfer failed");
+    }
   };
 
   const editTransaction = async (txId: number, updates: any) => {
     try {
-      await api.put('/transactions', { id: txId, ...updates });
+      await api.put("/transactions", { id: txId, ...updates });
       loadData();
     } catch (e: any) {
       console.error(e);
-      let msg = e.response?.data?.error || e.message || 'Failed to update transaction';
-      if (typeof msg === 'object') msg = JSON.stringify(msg);
+      let msg =
+        e.response?.data?.error || e.message || "Failed to update transaction";
+      if (typeof msg === "object") msg = JSON.stringify(msg);
       alert(`Error: ${msg}`);
     }
   };
 
   const deleteTransaction = async (txId: number) => {
-    if (!confirm('Revert this transaction?')) return;
+    if (!confirm("Revert this transaction?")) return;
     try {
       await api.delete(`/transactions?id=${txId}`);
       loadData();
-    } catch (e) { console.error(e); alert('Failed to revert transaction'); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to revert transaction");
+    }
   };
 
   const addSubscription = async (subData: any) => {
     try {
-      await api.post('/subscriptions', subData);
+      await api.post("/subscriptions", subData);
       loadData();
-    } catch (e) { console.error(e); alert('Failed to add subscription'); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to add subscription");
+    }
   };
 
-  const updateSubscription = async (id: number, updates: Partial<Subscription>) => {
+  const updateSubscription = async (
+    id: number,
+    updates: Partial<Subscription>,
+  ) => {
     try {
-      await api.put('/subscriptions', { id, ...updates });
+      await api.put("/subscriptions", { id, ...updates });
       loadData();
-    } catch (e) { console.error(e); alert('Failed to update subscription'); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to update subscription");
+    }
   };
 
   const deleteSubscription = async (id: number) => {
-    if (!confirm('Are you sure?')) return;
+    if (!confirm("Are you sure?")) return;
     try {
       await api.delete(`/subscriptions?id=${id}`);
       loadData();
-    } catch (e) { console.error(e); alert('Failed to delete subscription'); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to delete subscription");
+    }
   };
 
-  const recordPayment = async (subscriptionId: number, walletId: string, amount: number, date: string, nextRenewalDate: string, vatAmount?: number) => {
+  const recordPayment = async (
+    subscriptionId: number,
+    walletId: string,
+    amount: number,
+    date: string,
+    nextRenewalDate: string,
+    vatAmount?: number,
+  ) => {
     try {
-      await api.post('/transactions', {
-        type: 'SUBSCRIPTION_PAYMENT',
+      await api.post("/transactions", {
+        type: "SUBSCRIPTION_PAYMENT",
         amount,
         fromWalletId: walletId,
         subscriptionId,
         date,
         nextRenewalDate,
         vatAmount,
-        description: 'Subscription Payment'
+        description: "Subscription Payment",
       });
       loadData();
-    } catch (e) { console.error(e); alert('Payment failed'); }
+    } catch (e) {
+      console.error(e);
+      alert("Payment failed");
+    }
   };
 
-  const recordRefund = async (subscriptionId: number, walletId: string, amount: number, date: string) => {
+  const recordRefund = async (
+    subscriptionId: number,
+    walletId: string,
+    amount: number,
+    date: string,
+  ) => {
     try {
-      await api.post('/transactions', {
-        type: 'REFUND',
+      await api.post("/transactions", {
+        type: "REFUND",
         amount,
         toWalletId: walletId,
         subscriptionId,
         date,
-        description: 'Refund'
+        description: "Refund",
       });
       loadData();
-    } catch (e) { console.error(e); alert('Refund failed'); }
+    } catch (e) {
+      console.error(e);
+      alert("Refund failed");
+    }
   };
 
   // Departments
   const addDepartment = async (name: string, color: string) => {
-    try { await api.post('/departments', { name, color }); loadData(); } catch (e) { alert('Error'); }
+    try {
+      await api.post("/departments", { name, color });
+      loadData();
+    } catch (e) {
+      alert("Error");
+    }
   };
 
   const updateDepartment = (id: string, updates: Partial<Department>) => {
@@ -264,31 +349,50 @@ function AppContent() {
   };
 
   const deleteDepartment = async (id: string) => {
-    try { await api.delete(`/departments?id=${id}`); loadData(); } catch (e) { alert('Error'); }
+    try {
+      await api.delete(`/departments?id=${id}`);
+      loadData();
+    } catch (e) {
+      alert("Error");
+    }
   };
 
   // Accounts
   const addAccount = async (name: string, code: string) => {
-    try { await api.post('/accounts', { name, code }); loadData(); } catch (e) { alert('Error'); }
+    try {
+      await api.post("/accounts", { name, code });
+      loadData();
+    } catch (e) {
+      alert("Error");
+    }
   };
 
   const updateAccount = async (id: string, updates: Partial<Account>) => {
     try {
-      await api.put('/accounts', { id, ...updates });
+      await api.put("/accounts", { id, ...updates });
       loadData();
     } catch (e) {
       console.error(e);
-      alert('Failed to update account');
+      alert("Failed to update account");
     }
   };
 
   const deleteAccount = async (id: string) => {
-    try { await api.delete(`/accounts?id=${id}`); loadData(); } catch (e) { alert('Error'); }
+    try {
+      await api.delete(`/accounts?id=${id}`);
+      loadData();
+    } catch (e) {
+      alert("Error");
+    }
   };
 
   // --- Auth Gate ---
   if (isAuthChecking) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-indigo-600" size={32} /></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
@@ -296,87 +400,137 @@ function AppContent() {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 fixed inset-y-0 left-0 z-10 flex flex-col">
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center gap-2 text-indigo-600">
-            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">S</div>
-            <span className="text-xl font-bold tracking-tight text-gray-900">SubTrack AI</span>
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex flex-col">
+      {/* Top Navbar */}
+      <nav className="bg-[#1e1b4b] border-b border-indigo-900 sticky top-0 z-20 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center gap-4">
+              {/* Logo */}
+              <div className="flex-shrink-0 flex items-center gap-2">
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-2 rounded-lg shadow-inner">
+                  <LayoutGrid size={24} strokeWidth={2.5} />
+                </div>
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200 hidden md:block">
+                  SubTrack AI
+                </span>
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200 md:hidden">
+                  AI
+                </span>
+              </div>
+
+              {/* Navigation Items */}
+              <div className="hidden sm:ml-4 sm:flex sm:space-x-1 lg:space-x-2">
+                <NavButton
+                  label="Dashboard"
+                  icon={LayoutDashboard}
+                  id="dashboard"
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                />
+                <NavButton
+                  label="Wallets"
+                  icon={WalletIcon}
+                  id="wallets"
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                />
+                <NavButton
+                  label="Subscriptions"
+                  icon={List}
+                  id="subscriptions"
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                />
+                <NavButton
+                  label="Departments"
+                  icon={PieChart}
+                  id="departments"
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                />
+                <NavButton
+                  label="Qoyod"
+                  icon={BookOpen}
+                  id="qoyod"
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                />
+                <NavButton
+                  label="Archive"
+                  icon={Archive}
+                  id="inactive_cards"
+                  activeTab={activeTab}
+                  setActiveTab={setActiveTab}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setShowSettingsModal(true)}
+                className="flex items-center gap-3 bg-indigo-800/50 hover:bg-indigo-700/50 p-1.5 pr-4 rounded-full border border-indigo-700/50 transition-all group"
+              >
+                <div className="bg-indigo-600 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-lg group-hover:bg-indigo-500 transition">
+                  {user?.name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div className="text-left hidden md:block">
+                  <div className="text-xs font-bold text-white leading-tight">{user?.name}</div>
+                  <div className="text-[10px] text-indigo-200">ADMIN</div>
+                </div>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="text-indigo-300 hover:text-white p-2 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
           </div>
         </div>
+      </nav>
 
-        <nav className="flex-1 p-4 space-y-1">
-          <button
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <LayoutDashboard size={20} /> Dashboard
-          </button>
-          <button
-            onClick={() => setActiveTab('wallets')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'wallets' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <WalletCards size={20} /> Wallets & Funds
-          </button>
-          <button
-            onClick={() => setActiveTab('subscriptions')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'subscriptions' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <List size={20} /> Subscriptions
-          </button>
-          <button
-            onClick={() => setActiveTab('departments')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'departments' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Users size={20} /> Departments
-          </button>
-          <button
-            onClick={() => setActiveTab('qoyod')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'qoyod' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <BookOpen size={20} /> Qoyod
-          </button>
-          <button
-            onClick={() => setActiveTab('ocr')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'ocr' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <FileText size={20} /> Invoice OCR
-          </button>
-        </nav>
-
-        <div className="p-4 border-t border-gray-100">
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-4 text-white">
-            <p className="text-xs font-medium opacity-80 mb-1">Total Balance</p>
-            <p className="text-lg font-bold">{state.wallets.reduce((acc, w) => acc + parseFloat(w.balance as any), 0).toLocaleString()} SAR</p>
-          </div>
-        </div>
-      </aside>
+      {/* Settings Modal */}
+      {showSettingsModal && user && (
+        <SettingsModal
+          currentUser={{ name: user.name, email: user.email, id: user.id }}
+          onClose={() => setShowSettingsModal(false)}
+          onUpdateUser={(updatedUser) => setUser({ ...user, ...updatedUser })}
+        />
+      )}
 
       {/* Main Content */}
-      <main className="flex-1 ml-64 p-8">
-        <header className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 capitalize">{activeTab === 'ocr' ? 'Invoice OCR Scanner' : activeTab}</h1>
-            <p className="text-gray-500 text-sm mt-1">{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border shadow-sm">
-              <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs">U</div>
-              <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>
-            </div>
-            <button onClick={handleLogout} className="text-gray-400 hover:text-red-600 transition" title="Logout">
-              <LogOut size={20} />
-            </button>
-          </div>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">
+            {activeTab === "dashboard" && "Financial Dashboard"}
+            {activeTab === "wallets" && "Wallets & Cards"}
+            {activeTab === "inactive_cards" && "Inactive Cards Archive"}
+            {activeTab === "subscriptions" && "Subscription Management"}
+            {activeTab === "departments" && "Departments"}
+            {activeTab === "qoyod" && "Qoyod Integration"}
+            {activeTab === "ocr" && "Invoice OCR"}
+          </h1>
+          <p className="text-gray-500 mt-1 flex items-center gap-2 text-sm">
+            {activeTab === "dashboard" && "Overview of company spending and subscriptions"}
+            {activeTab === "wallets" && `Manage funds across ${state.wallets.filter(w => w.status === 'ACTIVE').length} active wallets`}
+            {activeTab === "inactive_cards" && "View history of decommissioned employee cards"}
+            {activeTab === "subscriptions" && `Tracking ${state.subscriptions.length} active subscriptions`}
+            {activeTab === "departments" && `Allocating costs across ${state.departments.length} departments`}
+            {activeTab === "qoyod" && "Sync data with Qoyod accounting software"}
+            {activeTab === "ocr" && "Scan invoices to auto-detect subscriptions"}
+          </p>
         </header>
 
-        {loadingData ? (
-          <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-indigo-600" size={48} /></div>
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="animate-spin text-indigo-600" size={48} />
+          </div>
         ) : (
           <div className="animation-fade-in">
-            {activeTab === 'dashboard' && <Dashboard state={state} />}
-            {activeTab === 'wallets' && (
+            {activeTab === "dashboard" && <Dashboard state={state} />}
+            {activeTab === "wallets" && (
               <Wallets
                 state={state}
                 onAddWallet={addWallet}
@@ -387,9 +541,24 @@ function AppContent() {
                 onEditTransaction={editTransaction}
                 onDeleteTransaction={deleteTransaction}
                 onSyncBalances={syncWalletBalances}
+                showInactive={false}
               />
             )}
-            {activeTab === 'subscriptions' && (
+            {activeTab === "inactive_cards" && (
+              <Wallets
+                state={state}
+                onAddWallet={addWallet}
+                onUpdateWallet={updateWallet}
+                onDeleteWallet={deleteWallet}
+                onTransfer={transferFunds}
+                onFundMain={fundMainWallet}
+                onEditTransaction={editTransaction}
+                onDeleteTransaction={deleteTransaction}
+                onSyncBalances={syncWalletBalances}
+                showInactive={true}
+              />
+            )}
+            {activeTab === "subscriptions" && (
               <Subscriptions
                 state={state}
                 onAddSubscription={addSubscription}
@@ -401,7 +570,7 @@ function AppContent() {
                 onRecordRefund={recordRefund}
               />
             )}
-            {activeTab === 'departments' && (
+            {activeTab === "departments" && (
               <Departments
                 departments={state.departments}
                 onAdd={addDepartment}
@@ -409,7 +578,7 @@ function AppContent() {
                 onDelete={deleteDepartment}
               />
             )}
-            {activeTab === 'qoyod' && (
+            {activeTab === "qoyod" && (
               <Qoyod
                 accounts={state.accounts}
                 onAdd={addAccount}
@@ -417,12 +586,27 @@ function AppContent() {
                 onDelete={deleteAccount}
               />
             )}
-            {activeTab === 'ocr' && <InvoiceOCR accounts={state.accounts} />}
+            {activeTab === "ocr" && <InvoiceOCR accounts={state.accounts} />}
           </div>
         )}
       </main>
     </div>
   );
 }
+
+// Helper for Nav Buttons
+const NavButton = ({ label, icon: Icon, id, activeTab, setActiveTab }: any) => (
+  <button
+    onClick={() => setActiveTab(id)}
+    className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 whitespace-nowrap ${
+      activeTab === id
+        ? "bg-white text-indigo-900 shadow-sm"
+        : "text-indigo-200 hover:bg-white/10 hover:text-white"
+    }`}
+  >
+    <Icon size={18} className={`mr-2 ${activeTab === id ? 'text-indigo-700' : 'text-indigo-300'}`} />
+    {label}
+  </button>
+);
 
 export default App;
