@@ -25,7 +25,9 @@ const runMigration = async () => {
         // --- Helper Function to sanitize strings ---
         const sanitize = (val: string) => {
             if (!val) return 'unknown';
-            return val.replace(/[^a-zA-Z0-9]/g, '_');
+            // valid: letters (any language), numbers, underscores, hyphens
+            // Replace spaces with underscores
+            return val.trim().replace(/\s+/g, '_');
         };
 
         // --- Step 1: Drop Constraints (if any) ---

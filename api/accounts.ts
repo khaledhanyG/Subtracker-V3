@@ -8,7 +8,7 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
   try {
     if (req.method === 'POST') {
       const { name, code } = req.body;
-      const id = `id_${name.replace(/[^a-zA-Z0-9]/g, '_')}`; // Generate Semantic ID
+      const id = `id_${name.trim().replace(/\s+/g, '_')}`; // Generate Semantic ID (preserves Arabic)
 
       const result = await query(
         'INSERT INTO accounts (id, user_id, name, code) VALUES ($1, $2, $3, $4) RETURNING *',
