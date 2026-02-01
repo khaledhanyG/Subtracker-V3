@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS wallets (
 
 -- DEPARTMENTS TABLE
 CREATE TABLE IF NOT EXISTS departments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id),
+  id TEXT PRIMARY KEY, -- Semantic ID: id_<name>
+  user_id TEXT NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   color TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS departments (
 -- ACCOUNTS TABLE
 CREATE TABLE IF NOT EXISTS accounts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   code TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 -- SUBSCRIPTIONS TABLE
 CREATE TABLE IF NOT EXISTS subscriptions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id),
+  user_id TEXT NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   base_amount DECIMAL(15, 2) NOT NULL,
   billing_cycle TEXT NOT NULL,
