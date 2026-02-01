@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS departments (
 
 -- ACCOUNTS TABLE
 CREATE TABLE IF NOT EXISTS accounts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id TEXT PRIMARY KEY, -- Semantic ID: id_<name>
   user_id TEXT NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   code TEXT,
