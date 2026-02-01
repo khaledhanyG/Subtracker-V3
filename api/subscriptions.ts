@@ -14,14 +14,18 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
       } = req.body;
 
       // Note: mapping camelCase to snake_case for DB
+      const id = `id_${name.trim().replace(/\s+/g, '_')}`; // Semantic ID
+
+      // We might want to handle duplicates here, but for now strict id_<name> enforces unique names per workspace effectively
+
       const result = await query(
         `INSERT INTO subscriptions (
-          user_id, name, base_amount, billing_cycle, user_count, notes, status,
+          id, user_id, name, base_amount, billing_cycle, user_count, notes, status,
           allocation_type, departments, account_allocation_type, accounts,
           start_date, next_renewal_date
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
         [
-          userId, name, baseAmount, billingCycle, userCount, notes, status,
+          id, userId, name, baseAmount, billingCycle, userCount, notes, status,
           allocationType, JSON.stringify(departments), accountAllocationType, JSON.stringify(accounts),
           startDate, nextRenewalDate
         ]

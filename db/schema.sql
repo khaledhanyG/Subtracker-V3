@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 -- SUBSCRIPTIONS TABLE
 CREATE TABLE IF NOT EXISTS subscriptions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id TEXT PRIMARY KEY, -- Semantic ID: id_<name>
   user_id TEXT NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   base_amount DECIMAL(15, 2) NOT NULL,
@@ -69,15 +69,15 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- TRANSACTIONS TABLE
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id),
+  user_id TEXT NOT NULL REFERENCES users(id), -- User ID was already TEXT from previous migrations
   date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   amount DECIMAL(15, 2) NOT NULL,
   type TEXT NOT NULL, -- 'DEPOSIT_FROM_BANK', 'INTERNAL_TRANSFER', 'SUBSCRIPTION_PAYMENT', 'REFUND'
   
-  from_wallet_id UUID REFERENCES wallets(id),
-  to_wallet_id UUID REFERENCES wallets(id),
+  from_wallet_id TEXT REFERENCES wallets(id), -- Wallet ID was already TEXT
+  to_wallet_id TEXT REFERENCES wallets(id),
   
-  subscription_id UUID REFERENCES subscriptions(id),
+  subscription_id TEXT REFERENCES subscriptions(id),
   
   description TEXT,
   vat_amount DECIMAL(15, 2),
