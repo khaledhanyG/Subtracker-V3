@@ -45,9 +45,11 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
 
       // Normal Create Wallet
       const { name, type, balance, holderName, status } = req.body;
+      const id = `id_${name.replace(/[^a-zA-Z0-9]/g, '_')}`; // Generate Semantic ID
+
       const result = await query(
-        'INSERT INTO wallets (user_id, name, type, balance, holder_name, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [userId, name, type, balance || 0, holderName, status || 'ACTIVE']
+        'INSERT INTO wallets (id, user_id, name, type, balance, holder_name, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [id, userId, name, type, balance || 0, holderName, status || 'ACTIVE']
       );
       return res.status(201).json(result.rows[0]);
     }

@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- USERS TABLE
 CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id TEXT PRIMARY KEY, -- Semantic ID: id_<email>
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   name TEXT NOT NULL,
@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- WALLETS TABLE
 CREATE TABLE IF NOT EXISTS wallets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id),
+  id TEXT PRIMARY KEY, -- Semantic ID: id_<name>
+  user_id TEXT NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   type TEXT NOT NULL, -- 'MAIN' or 'EMPLOYEE'
   balance DECIMAL(15, 2) DEFAULT 0,
