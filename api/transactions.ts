@@ -138,9 +138,15 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
           }
         }
 
-        // 3. Update Transaction Record
-        // We only support updating fields that are passed. 
-        // Ideally we should validate 'type' consistency but assuming type doesn't change for now or is handled safely.
+        // 3. Determine Final Values (Merge oldTx with updates)
+        const finalAmount = amount !== undefined ? parseFloat(amount) : parseFloat(oldTx.amount);
+        const finalDate = date !== undefined ? date : oldTx.date;
+        const finalDescription = description !== undefined ? description : oldTx.description;
+        const finalFromWalletId = fromWalletId !== undefined ? fromWalletId : oldTx.from_wallet_id;
+        const finalToWalletId = toWalletId !== undefined ? toWalletId : oldTx.to_wallet_id;
+        const finalSubId = req.body.subscriptionId !== undefined ? req.body.subscriptionId : oldTx.subscription_id;
+
+        // 4. Update Transaction Record
         await client.query(
           `UPDATE transactions SET 
                    amount = $1,
@@ -151,39 +157,33 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
           subscription_id = $6
                  WHERE id = $7 AND user_id = $8`,
           [
-            amount,
-            date,
-            description,
-            fromWalletId || null,
-            toWalletId || null,
-            req.body.subscriptionId || null,
+            finalAmount,
+            finalDate,
+            finalDescription,
+            finalFromWalletId,
+            finalToWalletId,
+            finalSubId,
             id,
             userId
           ]
         );
 
-        // 4. Apply New Effect
-        // Use the new values (or fallbacks if valid partial updates were allowed, but frontend sends full object)
-        // Assuming frontend sends the full new state including type (even if type matching oldTx)
-        const newAmount = parseFloat(amount);
-
-        // We use oldTx.type ensure we don't accidentally change type logic unless intended. 
-        // If type can change, we should use `type` from body.
+        // 5. Apply New Effect
         const txType = type || oldTx.type;
 
         if (txType === 'DEPOSIT_FROM_BANK') {
-          if (!toWalletId) throw new Error("Target wallet ID required");
-          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
+          if (!finalToWalletId) throw new Error("Target wallet ID required");
+          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [finalAmount, finalToWalletId]);
         } else if (txType === 'INTERNAL_TRANSFER') {
-          if (!fromWalletId || !toWalletId) throw new Error("Source and Dest wallets required");
-          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [newAmount, fromWalletId]);
-          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
+          if (!finalFromWalletId || !finalToWalletId) throw new Error("Source and Dest wallets required");
+          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [finalAmount, finalFromWalletId]);
+          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [finalAmount, finalToWalletId]);
         } else if (txType === 'SUBSCRIPTION_PAYMENT') {
-          if (!fromWalletId) throw new Error("Source wallet ID required for payment");
-          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [newAmount, fromWalletId]);
+          if (!finalFromWalletId) throw new Error("Source wallet ID required for payment");
+          await client.query('UPDATE wallets SET balance = balance - $1 WHERE id = $2', [finalAmount, finalFromWalletId]);
         } else if (txType === 'REFUND') {
-          if (!toWalletId) throw new Error("Target wallet ID required for refund");
-          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [newAmount, toWalletId]);
+          if (!finalToWalletId) throw new Error("Target wallet ID required for refund");
+          await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [finalAmount, finalToWalletId]);
         }
 
         await client.query('COMMIT');
