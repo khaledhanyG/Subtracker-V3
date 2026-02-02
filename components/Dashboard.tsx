@@ -268,7 +268,74 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
       </div>
 
       {/* Date Filters */}
+      {/* Date Filters */}
       <div className="flex flex-wrap gap-4 items-end bg-white p-4 rounded-xl border border-gray-200 shadow-sm no-print">
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Quick Filter</label>
+          <select
+            className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            onChange={(e) => {
+              const val = e.target.value;
+              if (!val) return;
+              const now = new Date();
+              let start = new Date();
+              let end = new Date();
+
+              if (val === 'CUSTOM') {
+                return; // Do nothing, let user picking
+              }
+
+              if (val === 'THIS_MONTH') {
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+              } else if (val === 'LAST_MONTH') {
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                end = new Date(now.getFullYear(), now.getMonth(), 0);
+              } else if (val === 'THIS_QUARTER') {
+                const q = Math.floor(now.getMonth() / 3);
+                start = new Date(now.getFullYear(), q * 3, 1);
+                end = new Date(now.getFullYear(), (q + 1) * 3, 0);
+              } else if (val === 'LAST_QUARTER') {
+                const q = Math.floor(now.getMonth() / 3);
+                const prevQ = q - 1;
+                if (prevQ < 0) {
+                  start = new Date(now.getFullYear() - 1, 9, 1);
+                  end = new Date(now.getFullYear() - 1, 12, 0);
+                } else {
+                  start = new Date(now.getFullYear(), prevQ * 3, 1);
+                  end = new Date(now.getFullYear(), (prevQ + 1) * 3, 0);
+                }
+              } else if (val === 'THIS_YEAR') {
+                start = new Date(now.getFullYear(), 0, 1);
+                end = new Date(now.getFullYear(), 11, 31);
+              } else if (val === 'LAST_YEAR') {
+                start = new Date(now.getFullYear() - 1, 0, 1);
+                end = new Date(now.getFullYear() - 1, 11, 31);
+              }
+
+              // Adjust for timezone offset to get YYYY-MM-DD correct
+              // Simple way: use local YYYY-MM-DD
+              const fmt = (d: Date) => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+              };
+
+              setStartDate(fmt(start));
+              setEndDate(fmt(end));
+            }}
+          >
+            <option value="CUSTOM">Select Range...</option>
+            <option value="THIS_MONTH">This Month</option>
+            <option value="LAST_MONTH">Last Month</option>
+            <option value="THIS_QUARTER">This Quarter</option>
+            <option value="LAST_QUARTER">Last Quarter</option>
+            <option value="THIS_YEAR">This Year</option>
+            <option value="LAST_YEAR">Last Year</option>
+          </select>
+        </div>
+
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">Start Date</label>
           <input

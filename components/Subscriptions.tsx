@@ -408,17 +408,26 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
     return s ? s.name : 'Unknown Service';
   };
 
+  // Filter & Sort
   const filteredSubs = state.subscriptions
-    .filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter(sub => {
+      // 1. Service Search
+      if (filterServiceSearch && !sub.name.toLowerCase().includes(filterServiceSearch.toLowerCase())) {
+        return false;
+      }
+      // 2. Main Search Bar
+      if (searchTerm && !sub.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+      return true;
+    })
     .sort((a, b) => {
-      // 1. Sort by Status (ACTIVE first)
-      if (a.status === EntityStatus.ACTIVE && b.status !== EntityStatus.ACTIVE) return -1;
-      if (a.status !== EntityStatus.ACTIVE && b.status === EntityStatus.ACTIVE) return 1;
+      // 1. Inactive Last
+      if (a.status === EntityStatus.INACTIVE && b.status !== EntityStatus.INACTIVE) return 1;
+      if (a.status !== EntityStatus.INACTIVE && b.status === EntityStatus.INACTIVE) return -1;
 
-      // 2. Sort by Next Renewal Date (ASC)
-      const dateA = new Date(a.nextRenewalDate).getTime();
-      const dateB = new Date(b.nextRenewalDate).getTime();
-      return dateA - dateB;
+      // 2. Next Renewal Date (Ascending - Soonest/Overdue first)
+      return new Date(a.nextRenewalDate).getTime() - new Date(b.nextRenewalDate).getTime();
     });
 
   let paymentHistory = state.transactions
@@ -1238,8 +1247,8 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
                     ) : (
                       filteredSubs.map(sub => {
                         const daysLeft = getDaysUntilRenewal(sub.nextRenewalDate);
-                        const isUrgent = daysLeft <= 7 && daysLeft >= 0;
-                        const isOverdue = daysLeft < 0;
+                        const isUrgent = daysLeft <= 7 && daysLeft >= 0; // Week from now
+                        const isPast = daysLeft < 0; // Already past
 
                         return (
                           <tr key={sub.id} className={`hover:bg-gray-50 transition ${sub.status === EntityStatus.INACTIVE ? 'bg-orange-50' : ''}`}>
@@ -1279,11 +1288,11 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
                             </td>
                             <td className="px-6 py-4 text-gray-500">{sub.lastPaymentDate ? new Date(sub.lastPaymentDate).toLocaleDateString('en-GB') : '-'}</td>
                             <td className="px-6 py-4">
-                              <div className={`flex items-center gap-2 ${isUrgent ? 'text-orange-600 font-bold' : isOverdue ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
-                                {(isUrgent || isOverdue) && sub.status === EntityStatus.ACTIVE && <AlertTriangle size={14} />}
+                              <div className={`flex items-center gap-2 ${isUrgent ? 'text-red-600 font-bold' : isPast ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
+                                {(isUrgent || isPast) && sub.status === EntityStatus.ACTIVE && <AlertTriangle size={14} />}
                                 {new Date(sub.nextRenewalDate).toLocaleDateString('en-GB')}
                               </div>
-                              {isUrgent && sub.status === EntityStatus.ACTIVE && <span className="text-xs text-orange-500">Due soon</span>}
+                              {isPast && sub.status === EntityStatus.ACTIVE && <span className="text-xs text-orange-500 font-bold">Due soon</span>}
                             </td>
                             <td className="px-6 py-4 text-right flex justify-end items-center gap-3">
                               <button
