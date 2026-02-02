@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AppState, AllocationType, WalletType, Subscription, TransactionType } from '../types';
+import { AppState, AllocationType, WalletType, Subscription, TransactionType, EntityStatus } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { DollarSign, AlertCircle, Wallet as WalletIcon, Users, CreditCard, FileSpreadsheet, Printer, ChevronRight } from 'lucide-react';
 import { analyzeSpending } from '../services/geminiService';
@@ -197,7 +197,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   const renderCompactCard = (sub: Subscription, isShared = false) => {
     const totalPaid = getSubTotalPaid(sub.id);
     return (
-      <div key={sub.id} className="bg-white px-3 py-2 rounded border border-gray-100 hover:shadow-sm transition-shadow flex items-center justify-between gap-2">
+      <div key={sub.id} className={`px-3 py-2 rounded border border-gray-100 hover:shadow-sm transition-shadow flex items-center justify-between gap-2 ${sub.status === EntityStatus.INACTIVE ? 'bg-orange-50' : 'bg-white'}`}>
         <div className="flex-1 min-w-0 truncate font-medium text-sm text-gray-800" title={sub.name}>
           {sub.name}
         </div>
