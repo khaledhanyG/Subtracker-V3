@@ -29,12 +29,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
     return renewalDate < today;
   }).length;
 
-  // Calculate "Renewing Soon" (Future Renewals >= Today)
+  // Calculate "Renewing Soon" (Today <= Renewal <= Today + 7 days)
   const upcomingRenewalsCount = state.subscriptions.filter(sub => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const renewalDate = new Date(sub.nextRenewalDate);
-    return renewalDate >= today;
+
+    const diffTime = renewalDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays >= 0 && diffDays <= 7;
   }).length;
 
   const employeeWallets = state.wallets.filter(w => w.type === WalletType.EMPLOYEE);

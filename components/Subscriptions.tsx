@@ -311,10 +311,10 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
       const isRefund = tx?.type === TransactionType.REFUND;
 
       onEditTransaction(editingTxId, {
-        amount: parseFloat(editTxData.amount),
-        date: new Date(editTxData.date).toISOString(),
-        fromWalletId: isRefund ? undefined : editTxData.walletId,
-        toWalletId: isRefund ? editTxData.walletId : undefined,
+        amount: editTxData.amount ? parseFloat(editTxData.amount) : undefined,
+        date: editTxData.date ? new Date(editTxData.date).toISOString() : undefined,
+        fromWalletId: isRefund ? undefined : (editTxData.walletId || undefined),
+        toWalletId: isRefund ? (editTxData.walletId || undefined) : undefined,
 
         subscriptionId: editTxData.subId || undefined
       });
