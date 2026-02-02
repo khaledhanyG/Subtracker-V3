@@ -89,21 +89,24 @@ async function run() {
                 const dateStr = formatRawDate(tx.date);
                 const createdAtStr = formatRawDate(tx.created_at);
 
-                values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6})`);
+                values.push(`($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}, $${paramIndex + 3}, $${paramIndex + 4}, $${paramIndex + 5}, $${paramIndex + 6}, $${paramIndex + 7}, $${paramIndex + 8}, $${paramIndex + 9})`);
                 params.push(
                     tx.user_id,
                     dateStr,
                     tx.amount,
                     tx.type,
-                    tx.to_wallet_id,
+                    tx.from_wallet_id || null,
+                    tx.to_wallet_id || null,
+                    tx.subscription_id || null,
                     tx.description || '',
+                    tx.vat_amount || 0,
                     createdAtStr
                 );
-                paramIndex += 7;
+                paramIndex += 10;
             });
 
             const query = `
-        INSERT INTO transactions (user_id, date, amount, type, to_wallet_id, description, created_at)
+        INSERT INTO transactions (user_id, date, amount, type, from_wallet_id, to_wallet_id, subscription_id, description, vat_amount, created_at)
         VALUES ${values.join(', ')}
       `;
 
