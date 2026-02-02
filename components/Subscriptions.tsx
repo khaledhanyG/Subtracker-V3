@@ -315,7 +315,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
         date: new Date(editTxData.date).toISOString(),
         fromWalletId: isRefund ? undefined : editTxData.walletId,
         toWalletId: isRefund ? editTxData.walletId : undefined,
-        toWalletId: isRefund ? editTxData.walletId : undefined,
+
         subscriptionId: editTxData.subId || undefined
       });
       setEditingTxId(null);
