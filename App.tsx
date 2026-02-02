@@ -76,7 +76,7 @@ function AppContent() {
   };
 
   const loadData = async () => {
-    setLoading(true);
+    // setLoading(true); // Don't trigger full loading screen on updates to preserve UI state
     try {
       const res = await api.get("/data");
       const fixNumbers = (item: any, fields: string[]) => {
@@ -599,8 +599,8 @@ const NavButton = ({ label, icon: Icon, id, activeTab, setActiveTab }: any) => (
   <button
     onClick={() => setActiveTab(id)}
     className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 whitespace-nowrap ${activeTab === id
-        ? "bg-white text-indigo-900 shadow-sm"
-        : "text-indigo-200 hover:bg-white/10 hover:text-white"
+      ? "bg-white text-indigo-900 shadow-sm"
+      : "text-indigo-200 hover:bg-white/10 hover:text-white"
       }`}
   >
     <Icon size={18} className={`mr-2 ${activeTab === id ? 'text-indigo-700' : 'text-indigo-300'}`} />
