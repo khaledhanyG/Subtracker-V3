@@ -60,11 +60,11 @@ function AppContent() {
           (api as any).verifyUser(), // Fetch user details
           loadData()
         ]);
-        
+
         if (userData && userData.user) {
           setUser(userData.user);
         }
-        
+
         setIsAuthenticated(true);
       } catch (e) {
         console.error("Auth failed", e);
@@ -96,10 +96,10 @@ function AppContent() {
           fixNumbers(w, ["balance"]),
         ),
         subscriptions: (res.data.subscriptions || []).map((s: any) =>
-          fixNumbers(s, ["id", "baseAmount", "lastPaymentAmount"]),
+          fixNumbers(s, ["baseAmount", "lastPaymentAmount"]),
         ),
         transactions: (res.data.transactions || []).map((t: any) =>
-          fixNumbers(t, ["amount", "vatAmount", "subscriptionId"]),
+          fixNumbers(t, ["amount", "vatAmount"]),
         ),
         departments: res.data.departments || [],
         accounts: res.data.accounts || [],
@@ -467,7 +467,7 @@ function AppContent() {
             </div>
 
             <div className="flex items-center gap-4">
-              <button 
+              <button
                 onClick={() => setShowSettingsModal(true)}
                 className="flex items-center gap-3 bg-indigo-800/50 hover:bg-indigo-700/50 p-1.5 pr-4 rounded-full border border-indigo-700/50 transition-all group"
               >
@@ -598,11 +598,10 @@ function AppContent() {
 const NavButton = ({ label, icon: Icon, id, activeTab, setActiveTab }: any) => (
   <button
     onClick={() => setActiveTab(id)}
-    className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 whitespace-nowrap ${
-      activeTab === id
+    className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition-all duration-200 whitespace-nowrap ${activeTab === id
         ? "bg-white text-indigo-900 shadow-sm"
         : "text-indigo-200 hover:bg-white/10 hover:text-white"
-    }`}
+      }`}
   >
     <Icon size={18} className={`mr-2 ${activeTab === id ? 'text-indigo-700' : 'text-indigo-300'}`} />
     {label}
