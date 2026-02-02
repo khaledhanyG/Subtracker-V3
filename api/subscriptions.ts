@@ -19,7 +19,22 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
           user_id, name, base_amount, billing_cycle, user_count, notes, status,
           allocation_type, departments, account_allocation_type, accounts,
           start_date, next_renewal_date
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+        RETURNING 
+          id, user_id, name, 
+          base_amount as "baseAmount", 
+          billing_cycle as "billingCycle", 
+          user_count as "userCount", 
+          notes, status,
+          allocation_type as "allocationType", 
+          departments, 
+          account_allocation_type as "accountAllocationType", 
+          accounts,
+          start_date as "startDate", 
+          next_renewal_date as "nextRenewalDate", 
+          last_payment_date as "lastPaymentDate", 
+          last_payment_amount as "lastPaymentAmount",
+          created_at`,
         [
           userId, name, baseAmount, billingCycle, userCount, notes, status,
           allocationType, JSON.stringify(departments), accountAllocationType, JSON.stringify(accounts),
@@ -67,7 +82,22 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
         const values = keys.map(key => dbUpdates[key]);
 
         const result = await query(
-          `UPDATE subscriptions SET ${setClause} WHERE id = $1 AND user_id = $${keys.length + 2} RETURNING *`,
+          `UPDATE subscriptions SET ${setClause} WHERE id = $1 AND user_id = $${keys.length + 2} 
+           RETURNING 
+            id, user_id, name, 
+            base_amount as "baseAmount", 
+            billing_cycle as "billingCycle", 
+            user_count as "userCount", 
+            notes, status,
+            allocation_type as "allocationType", 
+            departments, 
+            account_allocation_type as "accountAllocationType", 
+            accounts,
+            start_date as "startDate", 
+            next_renewal_date as "nextRenewalDate", 
+            last_payment_date as "lastPaymentDate", 
+            last_payment_amount as "lastPaymentAmount",
+            created_at`,
           [id, ...values, userId]
         );
         return res.status(200).json(result.rows[0]);

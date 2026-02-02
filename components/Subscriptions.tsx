@@ -6,12 +6,12 @@ import { Plus, AlertTriangle, Search, Trash2, Receipt, Users, ArrowRight, Histor
 interface SubscriptionsProps {
   state: AppState;
   onAddSubscription: (sub: Omit<Subscription, 'id'>) => void;
-  onDeleteSubscription: (id: number) => void;
-  onRecordPayment: (subscriptionId: number, walletId: string, amount: number, date: string, nextRenewalDate: string, vatAmount?: number) => void;
-  onUpdateSubscription: (id: number, updates: Partial<Subscription>) => void;
-  onEditTransaction: (id: number, updates: Partial<Transaction>) => void;
-  onDeleteTransaction: (id: number) => void;
-  onRecordRefund: (subscriptionId: number, walletId: string, amount: number, date: string) => void;
+  onDeleteSubscription: (id: string) => void;
+  onRecordPayment: (subscriptionId: string, walletId: string, amount: number, date: string, nextRenewalDate: string, vatAmount?: number) => void;
+  onUpdateSubscription: (id: string, updates: Partial<Subscription>) => void;
+  onEditTransaction: (id: string, updates: Partial<Transaction>) => void; // Transaction ID is also string
+  onDeleteTransaction: (id: string) => void;
+  onRecordRefund: (subscriptionId: string, walletId: string, amount: number, date: string) => void;
 }
 
 export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscription, onDeleteSubscription, onRecordPayment, onUpdateSubscription, onEditTransaction, onDeleteTransaction, onRecordRefund }) => {
@@ -21,7 +21,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
 
   // --- Modal States ---
   const [deleteModalSub, setDeleteModalSub] = useState<Subscription | null>(null);
-  const [deleteTxId, setDeleteTxId] = useState<number | null>(null);
+  const [deleteTxId, setDeleteTxId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -36,7 +36,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
   const [showAccountingModal, setShowAccountingModal] = useState(false);
 
   // --- Edit History State ---
-  const [editingTxId, setEditingTxId] = useState<number | null>(null);
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [editTxData, setEditTxData] = useState<{
     amount: string;
     date: string;
@@ -47,7 +47,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
 
   // --- Add/Edit Subscription Form State ---
   const [subForm, setSubForm] = useState<{
-    id?: number;
+    id?: string;
     name: string;
     baseAmount: string;
     billingCycle: BillingCycle;
@@ -276,7 +276,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
     setDeleteConfirmText('');
   };
 
-  const promptDeleteTx = (id: number) => {
+  const promptDeleteTx = (id: string) => {
     setDeleteTxId(id);
     setDeleteConfirmText('');
   };
@@ -315,7 +315,8 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
         date: new Date(editTxData.date).toISOString(),
         fromWalletId: isRefund ? undefined : editTxData.walletId,
         toWalletId: isRefund ? editTxData.walletId : undefined,
-        subscriptionId: editTxData.subId ? parseInt(editTxData.subId) : undefined
+        toWalletId: isRefund ? editTxData.walletId : undefined,
+        subscriptionId: editTxData.subId || undefined
       });
       setEditingTxId(null);
     }
@@ -328,27 +329,40 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
     const vatVal = payForm.isTaxable ? parseFloat(payForm.vatAmount) : 0;
     const totalVal = baseVal + vatVal;
 
-    const subIdNum = parseInt(payForm.subscriptionId);
-    if (isNaN(subIdNum)) {
+    const subId = payForm.subscriptionId;
+    if (!subId) {
       alert("Please select a valid subscription service.");
+      return;
+    }
+
+    // Check if sub exists
+    const sub = state.subscriptions.find(s => s.id === subId);
+    if (!sub) {
+      alert("Invalid subscription selected.");
       return;
     }
 
     const wallet = state.wallets.find(w => w.id === payForm.walletId);
 
     // Check for insufficient funds
-    if (wallet && wallet.balance < totalVal) {
+    if (!wallet) {
+      alert("Please select a wallet.");
+      return;
+    }
+
+    // Check for insufficient funds
+    if (wallet.balance < totalVal) {
       alert(`Transaction Failed: Insufficient funds in "${wallet.name}".\n\nAvailable Balance: ${wallet.balance.toLocaleString()} SAR\nRequired Amount: ${totalVal.toLocaleString()} SAR\n\nPlease transfer funds to this card before proceeding.`);
       return;
     }
 
-    onRecordPayment(subIdNum, payForm.walletId, totalVal, payForm.date, payForm.nextRenewalDate, vatVal > 0 ? vatVal : undefined);
+    onRecordPayment(subId, payForm.walletId, totalVal, payForm.date, payForm.nextRenewalDate, vatVal > 0 ? vatVal : undefined);
     setPayForm({ ...payForm, subscriptionId: '', walletId: '', amount: '', nextRenewalDate: '', isTaxable: false, vatAmount: '' });
     setViewMode('HISTORY');
   };
 
-  const onSelectSubscriptionForPayment = (subIdInput: string | number) => {
-    const subId = typeof subIdInput === 'string' ? parseInt(subIdInput) : subIdInput;
+  const onSelectSubscriptionForPayment = (subIdInput: string) => {
+    const subId = subIdInput;
     const sub = state.subscriptions.find(s => s.id === subId);
     if (sub) {
       // Auto-calculate next renewal based on cycle
@@ -378,7 +392,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
   // --- Refund Submit ---
   const handleRefundSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onRecordRefund(parseInt(refundForm.subscriptionId), refundForm.walletId, parseFloat(refundForm.amount), refundForm.date);
+    onRecordRefund(refundForm.subscriptionId, refundForm.walletId, parseFloat(refundForm.amount), refundForm.date);
     setRefundForm({ subscriptionId: '', walletId: '', amount: '', date: new Date().toISOString().split('T')[0] });
     setViewMode('HISTORY');
   };
@@ -389,7 +403,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
     return w ? w.name : 'Unknown Wallet';
   };
 
-  const getSubscriptionName = (id?: number) => {
+  const getSubscriptionName = (id?: string) => {
     const s = state.subscriptions.find(s => s.id === id);
     return s ? s.name : 'Unknown Service';
   };

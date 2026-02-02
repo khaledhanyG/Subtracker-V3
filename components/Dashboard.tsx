@@ -158,7 +158,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
     }
   });
 
-  const getSubTotalPaid = (subId: number) => {
+  const getSubTotalPaid = (subId: string) => {
     const payments = filteredTransactions.filter(t => t.subscriptionId === subId && t.type === TransactionType.SUBSCRIPTION_PAYMENT).reduce((sum, t) => sum + t.amount, 0);
     const refunds = filteredTransactions.filter(t => t.subscriptionId === subId && t.type === TransactionType.REFUND).reduce((sum, t) => sum + t.amount, 0);
     return payments - refunds;
@@ -315,54 +315,54 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         <div className="space-y-4">
           {/* Render Accordion for each department */}
           {[...state.departments, { id: 'SHARED', name: 'Shared / Split', color: '#4b5563' } as any].map(dept => {
-             const isShared = dept.id === 'SHARED';
-             const subs = subGroups[dept.id] || [];
-             const deptTotal = isShared 
-               ? subs.reduce((acc, s) => acc + getSubTotalPaid(s.id), 0) // Approximation for shared visualization
-               : (deptTotalPaidMap.get(dept.id) || 0);
-             
-             const isExpanded = expandedDepts.has(dept.id);
+            const isShared = dept.id === 'SHARED';
+            const subs = subGroups[dept.id] || [];
+            const deptTotal = isShared
+              ? subs.reduce((acc, s) => acc + getSubTotalPaid(s.id), 0) // Approximation for shared visualization
+              : (deptTotalPaidMap.get(dept.id) || 0);
 
-             return (
-               <div key={dept.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-200">
-                 {/* Accordion Header */}
-                 <button 
-                   onClick={() => toggleDept(dept.id)}
-                   className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
-                   style={{ borderLeft: `6px solid ${dept.color}` }}
-                 >
-                   <div className="flex items-center gap-4">
-                     <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-                       <ChevronRight size={20} className="text-gray-400" />
-                     </div>
-                     <div>
-                       <h4 className="font-bold text-gray-800 text-lg">{dept.name}</h4>
-                       <p className="text-xs text-gray-500 mt-0.5">{subs.length} Subscriptions</p>
-                     </div>
-                   </div>
-                   
-                   <div className="flex items-center gap-6">
-                     <div className="text-right">
-                       <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Expense</p>
-                       <p className="text-base font-bold text-gray-700">{deptTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</p>
-                     </div>
-                   </div>
-                 </button>
+            const isExpanded = expandedDepts.has(dept.id);
 
-                 {/* Accordion Content */}
-                 {isExpanded && (
-                   <div className="p-4 bg-gray-50 border-t border-gray-100 animation-expand">
-                     {subs.length === 0 ? (
-                       <div className="text-center py-8 text-gray-400 text-sm italic">No subscriptions found for this department.</div>
-                     ) : (
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                         {subs.map(sub => renderCompactCard(sub, isShared))}
-                       </div>
-                     )}
-                   </div>
-                 )}
-               </div>
-             );
+            return (
+              <div key={dept.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-200">
+                {/* Accordion Header */}
+                <button
+                  onClick={() => toggleDept(dept.id)}
+                  className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
+                  style={{ borderLeft: `6px solid ${dept.color}` }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                      <ChevronRight size={20} className="text-gray-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 text-lg">{dept.name}</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">{subs.length} Subscriptions</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <div className="text-right">
+                      <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Expense</p>
+                      <p className="text-base font-bold text-gray-700">{deptTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</p>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Accordion Content */}
+                {isExpanded && (
+                  <div className="p-4 bg-gray-50 border-t border-gray-100 animation-expand">
+                    {subs.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400 text-sm italic">No subscriptions found for this department.</div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {subs.map(sub => renderCompactCard(sub, isShared))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
           })}
         </div>
       </div>

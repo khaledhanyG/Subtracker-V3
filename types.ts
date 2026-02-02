@@ -55,7 +55,7 @@ export enum BillingCycle {
 }
 
 export interface Subscription {
-  id: number;
+  id: string; // Changed from number to string to match DB "id_Freepik"
   name: string;
   baseAmount: number; // Cost in SAR
   billingCycle: BillingCycle;
@@ -86,14 +86,14 @@ export enum TransactionType {
 }
 
 export interface Transaction {
-  id: number;
+  id: string; // Changed from number to string
   date: string;
   amount: number;
   type: TransactionType;
   fromWalletId?: string;
   toWalletId?: string;
   description: string;
-  subscriptionId?: number;
+  subscriptionId?: string; // Changed from number to string
   vatAmount?: number; // Tax amount if applicable
 }
 

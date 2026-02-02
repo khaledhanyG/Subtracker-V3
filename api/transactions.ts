@@ -21,7 +21,14 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
           `INSERT INTO transactions (
             user_id, amount, type, description, date,
             from_wallet_id, to_wallet_id, subscription_id, vat_amount
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+          RETURNING 
+            id, user_id, date, amount, type, description, 
+            from_wallet_id as "fromWalletId", 
+            to_wallet_id as "toWalletId", 
+            subscription_id as "subscriptionId", 
+            vat_amount as "vatAmount",
+            created_at
           [userId, amount, type, description, date, fromWalletId, toWalletId, subscriptionId, vatAmount]
         );
         const transaction = txResult.rows[0];
@@ -61,17 +68,17 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
             if (nextRenewalDate) {
               await client.query(
                 `UPDATE subscriptions SET 
-                      last_payment_date = $1, 
-                      last_payment_amount = $2,
-                      next_renewal_date = $3
+                      last_payment_date = $1,
+          last_payment_amount = $2,
+          next_renewal_date = $3
                     WHERE id = $4 AND user_id = $5`,
                 [date, amount, nextRenewalDate, subscriptionId, userId]
               );
             } else {
               await client.query(
                 `UPDATE subscriptions SET 
-                      last_payment_date = $1, 
-                      last_payment_amount = $2
+                      last_payment_date = $1,
+          last_payment_amount = $2
                     WHERE id = $3 AND user_id = $4`,
                 [date, amount, subscriptionId, userId]
               );
@@ -136,12 +143,12 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
         // Ideally we should validate 'type' consistency but assuming type doesn't change for now or is handled safely.
         await client.query(
           `UPDATE transactions SET 
-                   amount = $1, 
-                   date = $2, 
-                   description = $3,
-                   from_wallet_id = $4,
-                   to_wallet_id = $5,
-                   subscription_id = $6
+                   amount = $1,
+          date = $2,
+          description = $3,
+          from_wallet_id = $4,
+          to_wallet_id = $5,
+          subscription_id = $6
                  WHERE id = $7 AND user_id = $8`,
           [
             amount,
@@ -182,7 +189,16 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
         await client.query('COMMIT');
 
         // Return updated
-        const updatedTx = await client.query('SELECT * FROM transactions WHERE id = $1', [id]);
+        const updatedTx = await client.query(`
+          SELECT 
+            id, user_id, date, amount, type, description,
+          from_wallet_id as "fromWalletId",
+          to_wallet_id as "toWalletId",
+          subscription_id as "subscriptionId",
+          vat_amount as "vatAmount",
+          created_at
+          FROM transactions WHERE id = $1
+          `, [id]);
         return res.status(200).json(updatedTx.rows[0]);
 
       } catch (e: any) {
