@@ -11,31 +11,23 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
 
       // RECONCILE BALANCES LOGIC
       if (action === 'RECONCILE') {
-        await query('BEGIN');
-
-        // 1. Reset all wallets to 0 (optional if the next query handles everything, but safer to be explicit conceptually, though SQL below covers it)
-        // 2. Calculate sum input/output for each wallet
+        // 1. Recalculate balances for ALL wallets based on transaction history
+        // If a wallet has no transactions, its balance becomes 0.
         const reconcileQuery = `
-          WITH wallet_sums AS (
-            SELECT 
-              w.id,
-              COALESCE(SUM(
-                CASE 
-                  WHEN t.to_wallet_id = w.id THEN t.amount 
-                  WHEN t.from_wallet_id = w.id THEN -t.amount 
-                  ELSE 0 
-                END
-              ), 0) as computed_balance
-            FROM wallets w
-            LEFT JOIN transactions t ON (t.from_wallet_id = w.id OR t.to_wallet_id = w.id)
-            WHERE w.user_id = $1
-            GROUP BY w.id
-          )
-          UPDATE wallets
-          SET balance = wallet_sums.computed_balance
-          FROM wallet_sums
-          WHERE wallets.id = wallet_sums.id AND wallets.user_id = $1
-          RETURNING wallets.*;
+          UPDATE wallets w
+          SET balance = COALESCE((
+            SELECT SUM(
+              CASE 
+                WHEN t.to_wallet_id = w.id THEN t.amount 
+                WHEN t.from_wallet_id = w.id THEN -t.amount 
+                ELSE 0 
+              END
+            )
+            FROM transactions t
+            WHERE (t.to_wallet_id = w.id OR t.from_wallet_id = w.id)
+          ), 0)
+          WHERE w.user_id = $1
+          RETURNING *;
         `;
 
         const result = await query(reconcileQuery, [userId]);
