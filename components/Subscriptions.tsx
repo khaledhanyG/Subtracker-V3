@@ -1132,7 +1132,7 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
                           ) : (
                             <div className="flex flex-col">
                               <span className="text-green-600 text-xs font-bold uppercase">Payment</span>
-                              {t.vatAmount && t.vatAmount > 0 && <span className="text-[10px] text-gray-400">Inc. VAT {t.vatAmount.toLocaleString()}</span>}
+                              {(t.vatAmount || 0) > 0 && <span className="text-[10px] text-gray-400">Inc. VAT {(t.vatAmount || 0).toLocaleString()}</span>}
                             </div>
                           )}
                         </td>
@@ -1197,121 +1197,124 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
             </table>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* --- VIEW: LIST --- */}
-      {viewMode === 'LIST' && (
-        <>
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search active subscriptions..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {/* Main Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-600 border-b border-gray-100">
-                  <tr>
-                    <th className="px-6 py-4 font-semibold">Service</th>
-                    <th className="px-6 py-4 font-semibold">Status</th>
-                    <th className="px-6 py-4 font-semibold">Base Cost</th>
-                    <th className="px-6 py-4 font-semibold">Cycle</th>
-                    <th className="px-6 py-4 font-semibold">Departments</th>
-                    <th className="px-6 py-4 font-semibold">Last Payment</th>
-                    <th className="px-6 py-4 font-semibold">Next Renewal</th>
-                    <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredSubs.length === 0 ? (
-                    <tr><td colSpan={8} className="px-6 py-12 text-center text-gray-400">No subscriptions defined.</td></tr>
-                  ) : (
-                    filteredSubs.map(sub => {
-                      const daysLeft = getDaysUntilRenewal(sub.nextRenewalDate);
-                      const isUrgent = daysLeft <= 7 && daysLeft >= 0;
-                      const isOverdue = daysLeft < 0;
-
-                      return (
-                        <tr key={sub.id} className={`hover:bg-gray-50 transition ${sub.status === EntityStatus.INACTIVE ? 'opacity-60' : ''}`}>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-900">{sub.name}</span>
-                              {sub.notes && (
-                                <button
-                                  onClick={() => openNoteModal(sub.name, sub.notes || '')}
-                                  className="text-yellow-500 hover:text-yellow-600 cursor-pointer transition"
-                                  title="View Notes"
-                                >
-                                  <StickyNote size={14} />
-                                </button>
-                              )}
-                            </div>
-                            <div className="text-xs text-gray-400 flex items-center gap-1"><Users size={10} /> {sub.userCount} users</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${sub.status === EntityStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                              {sub.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 font-semibold text-gray-900">{sub.baseAmount.toLocaleString()} SAR</td>
-                          <td className="px-6 py-4 text-xs uppercase font-bold tracking-wide text-gray-500">{sub.billingCycle}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-1">
-                              {sub.departments.map((split, idx) => {
-                                const dept = departments.find(d => d.id === split.departmentId);
-                                return (
-                                  <span key={idx} className="px-2 py-1 rounded-full text-xs font-medium border" style={{ borderColor: dept?.color, color: dept?.color, backgroundColor: '#ffffff' }}>
-                                    {dept?.name} {split.percentage ? `(${split.percentage}%)` : ''}
-                                  </span>
-                                )
-                              })}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-gray-500">{sub.lastPaymentDate ? new Date(sub.lastPaymentDate).toLocaleDateString('en-GB') : '-'}</td>
-                          <td className="px-6 py-4">
-                            <div className={`flex items-center gap-2 ${isUrgent ? 'text-orange-600 font-bold' : isOverdue ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
-                              {(isUrgent || isOverdue) && sub.status === EntityStatus.ACTIVE && <AlertTriangle size={14} />}
-                              {new Date(sub.nextRenewalDate).toLocaleDateString('en-GB')}
-                            </div>
-                            {isUrgent && sub.status === EntityStatus.ACTIVE && <span className="text-xs text-orange-500">Due soon</span>}
-                          </td>
-                          <td className="px-6 py-4 text-right flex justify-end items-center gap-3">
-                            <button
-                              disabled={sub.status === EntityStatus.INACTIVE}
-                              onClick={() => {
-                                onSelectSubscriptionForPayment(sub.id);
-                                setViewMode('PAY');
-                              }}
-                              className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                              title="Record Payment"
-                            >
-                              <Receipt size={16} /> PAY
-                            </button>
-                            <button onClick={() => startEditing(sub)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full" title="Edit Service">
-                              <Edit2 size={18} />
-                            </button>
-                            <button onClick={() => promptDeleteSub(sub)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full" title="Delete Service">
-                              <Trash2 size={18} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+      {
+        viewMode === 'LIST' && (
+          <>
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Search active subscriptions..."
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-          </div>
-        </>
-      )}
-    </div>
+
+            {/* Main Table */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-gray-600 border-b border-gray-100">
+                    <tr>
+                      <th className="px-6 py-4 font-semibold">Service</th>
+                      <th className="px-6 py-4 font-semibold">Status</th>
+                      <th className="px-6 py-4 font-semibold">Base Cost</th>
+                      <th className="px-6 py-4 font-semibold">Cycle</th>
+                      <th className="px-6 py-4 font-semibold">Departments</th>
+                      <th className="px-6 py-4 font-semibold">Last Payment</th>
+                      <th className="px-6 py-4 font-semibold">Next Renewal</th>
+                      <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredSubs.length === 0 ? (
+                      <tr><td colSpan={8} className="px-6 py-12 text-center text-gray-400">No subscriptions defined.</td></tr>
+                    ) : (
+                      filteredSubs.map(sub => {
+                        const daysLeft = getDaysUntilRenewal(sub.nextRenewalDate);
+                        const isUrgent = daysLeft <= 7 && daysLeft >= 0;
+                        const isOverdue = daysLeft < 0;
+
+                        return (
+                          <tr key={sub.id} className={`hover:bg-gray-50 transition ${sub.status === EntityStatus.INACTIVE ? 'bg-orange-50' : ''}`}>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-gray-900">{sub.name}</span>
+                                {sub.notes && (
+                                  <button
+                                    onClick={() => openNoteModal(sub.name, sub.notes || '')}
+                                    className="text-yellow-500 hover:text-yellow-600 cursor-pointer transition"
+                                    title="View Notes"
+                                  >
+                                    <StickyNote size={14} />
+                                  </button>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-400 flex items-center gap-1"><Users size={10} /> {sub.userCount} users</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${sub.status === EntityStatus.ACTIVE ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                                {sub.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 font-semibold text-gray-900">{sub.baseAmount.toLocaleString()} SAR</td>
+                            <td className="px-6 py-4 text-xs uppercase font-bold tracking-wide text-gray-500">{sub.billingCycle}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-1">
+                                {sub.departments.map((split, idx) => {
+                                  const dept = departments.find(d => d.id === split.departmentId);
+                                  return (
+                                    <span key={idx} className="px-2 py-1 rounded-full text-xs font-medium border" style={{ borderColor: dept?.color, color: dept?.color, backgroundColor: '#ffffff' }}>
+                                      {dept?.name} {split.percentage ? `(${split.percentage}%)` : ''}
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-gray-500">{sub.lastPaymentDate ? new Date(sub.lastPaymentDate).toLocaleDateString('en-GB') : '-'}</td>
+                            <td className="px-6 py-4">
+                              <div className={`flex items-center gap-2 ${isUrgent ? 'text-orange-600 font-bold' : isOverdue ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
+                                {(isUrgent || isOverdue) && sub.status === EntityStatus.ACTIVE && <AlertTriangle size={14} />}
+                                {new Date(sub.nextRenewalDate).toLocaleDateString('en-GB')}
+                              </div>
+                              {isUrgent && sub.status === EntityStatus.ACTIVE && <span className="text-xs text-orange-500">Due soon</span>}
+                            </td>
+                            <td className="px-6 py-4 text-right flex justify-end items-center gap-3">
+                              <button
+                                disabled={sub.status === EntityStatus.INACTIVE}
+                                onClick={() => {
+                                  onSelectSubscriptionForPayment(sub.id);
+                                  setViewMode('PAY');
+                                }}
+                                className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold px-4 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                title="Record Payment"
+                              >
+                                <Receipt size={16} /> PAY
+                              </button>
+                              <button onClick={() => startEditing(sub)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-full" title="Edit Service">
+                                <Edit2 size={18} />
+                              </button>
+                              <button onClick={() => promptDeleteSub(sub)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full" title="Delete Service">
+                                <Trash2 size={18} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )
+      }
+    </div >
   );
 };
