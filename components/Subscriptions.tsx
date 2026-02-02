@@ -268,8 +268,8 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
       selectedAccountIds: sub.accounts ? sub.accounts.map(a => a.accountId) : [],
       accountPercentages: accPercentageMap,
 
-      startDate: sub.startDate,
-      renewalDate: sub.nextRenewalDate,
+      startDate: sub.lastPaymentDate ? sub.lastPaymentDate.split('T')[0] : sub.startDate,
+      renewalDate: sub.nextRenewalDate ? sub.nextRenewalDate.split('T')[0] : '',
       notes: sub.notes || '',
       status: sub.status
     });
