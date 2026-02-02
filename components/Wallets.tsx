@@ -63,10 +63,30 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
 
+  // Archive Specific Filters
+  const [archiveStartDate, setArchiveStartDate] = useState('');
+  const [archiveEndDate, setArchiveEndDate] = useState('');
+
   const mainWallet = state.wallets.find(w => w.type === WalletType.MAIN);
   const employeeWallets = state.wallets.filter(w => w.type === WalletType.EMPLOYEE && (showInactive ? w.status === EntityStatus.INACTIVE : w.status === EntityStatus.ACTIVE));
   const allWallets = state.wallets;
   const activeWallets = state.wallets.filter(w => w.status === EntityStatus.ACTIVE);
+
+  // Helper: Calculate Balance at specific date
+  const calcHistoricalBalance = (walletId: string, asOfDate: string) => {
+    // End of the day for the selected date
+    const cutoff = new Date(asOfDate);
+    cutoff.setHours(23, 59, 59, 999);
+
+    return state.transactions.reduce((acc, t) => {
+      const tDate = new Date(t.date);
+      if (tDate > cutoff) return acc;
+
+      if (t.toWalletId === walletId) return acc + t.amount; // Deposit, Transfer In, Refund
+      if (t.fromWalletId === walletId) return acc - t.amount; // Payment, Transfer Out
+      return acc;
+    }, 0);
+  };
 
   const relevantTransactions = state.transactions
     .filter(t => t.type !== TransactionType.SUBSCRIPTION_PAYMENT)
@@ -75,15 +95,18 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
       if (filterWalletId) {
         if (t.fromWalletId !== filterWalletId && t.toWalletId !== filterWalletId) return false;
       }
-      // Date Filter
-      if (filterStartDate) {
-        if (new Date(t.date) < new Date(filterStartDate)) return false;
+      // Date Filter (Use Archive filters if showing inactive and they are set, otherwise standard filters)
+      const start = showInactive ? archiveStartDate : filterStartDate;
+      const end = showInactive ? archiveEndDate : filterEndDate;
+
+      if (start) {
+        if (new Date(t.date) < new Date(start)) return false;
       }
-      if (filterEndDate) {
+      if (end) {
         const d = new Date(t.date);
-        const end = new Date(filterEndDate);
-        end.setHours(23, 59, 59, 999);
-        if (d > end) return false;
+        const endDateObj = new Date(end);
+        endDateObj.setHours(23, 59, 59, 999);
+        if (d > endDateObj) return false;
       }
       return true;
     })
@@ -269,68 +292,94 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
 
       {/* Main Wallet Section */}
       {!showInactive && (
-      <section className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-8 text-white shadow-lg">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-slate-400 font-medium mb-1">Main Company Wallet</h2>
-            <div className="text-4xl font-bold mb-4">{mainWallet?.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</div>
-            <p className="text-slate-400 text-sm">Source of funds for all employee cards.</p>
-          </div>
-          <button
-            onClick={() => setShowFund(true)}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
-          >
-            <Download size={18} /> Add Funds
-          </button>
-        </div>
-
-        {showFund && (
-          <form onSubmit={handleFund} className="mt-6 bg-white/10 p-4 rounded-lg backdrop-blur-sm flex gap-4 items-end">
-            <div className="flex-1">
-              <label className="block text-xs text-slate-300 mb-1">Amount to deposit from Bank (SAR)</label>
-              <input
-                type="number"
-                min="1"
-                required
-                value={fundAmount}
-                onChange={e => setFundAmount(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
-                placeholder="5000"
-              />
+        <section className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-8 text-white shadow-lg">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-slate-400 font-medium mb-1">Main Company Wallet</h2>
+              <div className="text-4xl font-bold mb-4">{mainWallet?.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</div>
+              <p className="text-slate-400 text-sm">Source of funds for all employee cards.</p>
             </div>
-            <button type="submit" className="bg-emerald-500 text-white px-4 py-2 rounded hover:bg-emerald-600">Confirm</button>
-            <button type="button" onClick={() => setShowFund(false)} className="text-slate-300 px-4 py-2 hover:text-white">Cancel</button>
-          </form>
-        )}
-      </section>
+            <button
+              onClick={() => setShowFund(true)}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
+            >
+              <Download size={18} /> Add Funds
+            </button>
+          </div>
+
+          {showFund && (
+            <form onSubmit={handleFund} className="mt-6 bg-white/10 p-4 rounded-lg backdrop-blur-sm flex gap-4 items-end">
+              <div className="flex-1">
+                <label className="block text-xs text-slate-300 mb-1">Amount to deposit from Bank (SAR)</label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={fundAmount}
+                  onChange={e => setFundAmount(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="5000"
+                />
+              </div>
+              <div className="flex-1">
+                <span className="block text-xs text-slate-900 mb-1 opacity-0">Action</span>
+              </div>
+              <button type="submit" className="bg-emerald-500 text-white px-4 py-2 rounded hover:bg-emerald-600">Confirm</button>
+              <button type="button" onClick={() => setShowFund(false)} className="text-slate-300 px-4 py-2 hover:text-white">Cancel</button>
+            </form>
+          )}
+        </section>
       )}
 
       {/* Internal Transfers Action */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-800">Employee Cards</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-bold text-gray-800">Employee Cards</h2>
+
+          {/* Archive Date Filters */}
+          {showInactive && (
+            <div className="flex items-center gap-2 ml-4 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+              <span className="text-xs font-semibold text-gray-500 uppercase">Balance As Of:</span>
+              <input
+                type="date"
+                value={archiveEndDate}
+                onChange={e => setArchiveEndDate(e.target.value)}
+                className="text-sm border-none focus:ring-0 text-gray-700 p-0"
+              />
+              {archiveEndDate && (
+                <button onClick={() => setArchiveEndDate('')} className="text-xs text-red-500 hover:text-red-700 font-medium ml-2">Clear</button>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-2">
-          <button
-            onClick={onSyncBalances}
-            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
-            title="Recalculate balances from transaction history"
-          >
-            <RefreshCw size={18} /> Sync Balances
-          </button>
-          <button
-            onClick={() => {
-              setShowTransfer(true);
-              setTransferFromId(mainWallet?.id || '');
-            }}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
-          >
-            <ArrowRightLeft size={18} /> Transfer Funds
-          </button>
-          <button
-            onClick={() => setShowAddCard(true)}
-            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
-          >
-            <Plus size={18} /> New Card
-          </button>
+          {!showInactive && (
+            <>
+              <button
+                onClick={onSyncBalances}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
+                title="Recalculate balances from transaction history"
+              >
+                <RefreshCw size={18} /> Sync Balances
+              </button>
+              <button
+                onClick={() => {
+                  setShowTransfer(true);
+                  setTransferFromId(mainWallet?.id || '');
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
+              >
+                <ArrowRightLeft size={18} /> Transfer Funds
+              </button>
+              <button
+                onClick={() => setShowAddCard(true)}
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm"
+              >
+                <Plus size={18} /> New Card
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -432,40 +481,51 @@ export const Wallets: React.FC<WalletsProps> = ({ state, onAddWallet, onUpdateWa
 
       {/* Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {employeeWallets.map(wallet => (
-          <div key={wallet.id} className={`bg-white p-6 rounded-xl shadow-sm border flex flex-col justify-between h-48 relative group ${wallet.status === EntityStatus.INACTIVE ? 'border-gray-100 opacity-75 bg-gray-50' : 'border-gray-100'}`}>
-            <div className="absolute top-4 right-4 flex gap-2">
-              <button
-                onClick={() => startEditingWallet(wallet)}
-                className="text-gray-300 hover:text-blue-500 transition"
-              >
-                <Edit2 size={16} />
-              </button>
-              <button
-                onClick={() => promptDeleteWallet(wallet.id)}
-                className="text-gray-300 hover:text-red-500 transition"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
+        {employeeWallets.map(wallet => {
+          // Determine Display Balance: If archiveEndDate is set, calculate it. Else use current.
+          const displayBalance = (showInactive && archiveEndDate)
+            ? calcHistoricalBalance(wallet.id, archiveEndDate)
+            : wallet.balance;
 
-            <div>
-              <div className="flex items-center gap-2 mb-4 text-gray-500">
-                <CreditCard size={20} />
-                <span className="text-sm font-medium tracking-wide">VIRTUAL CARD</span>
-                {wallet.status === EntityStatus.INACTIVE && (
-                  <span className="ml-auto text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full font-bold">INACTIVE</span>
-                )}
+          return (
+            <div key={wallet.id} className={`bg-white p-6 rounded-xl shadow-sm border flex flex-col justify-between h-48 relative group ${wallet.status === EntityStatus.INACTIVE ? 'border-gray-100 opacity-75 bg-gray-50' : 'border-gray-100'}`}>
+              <div className="absolute top-4 right-4 flex gap-2">
+                <button
+                  onClick={() => startEditingWallet(wallet)}
+                  className="text-gray-300 hover:text-blue-500 transition"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button
+                  onClick={() => promptDeleteWallet(wallet.id)}
+                  className="text-gray-300 hover:text-red-500 transition"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
-              <h3 className="text-xl font-bold text-gray-800">{wallet.name}</h3>
-              <p className="text-sm text-gray-500">{wallet.holderName}</p>
+
+              <div>
+                <div className="flex items-center gap-2 mb-4 text-gray-500">
+                  <CreditCard size={20} />
+                  <span className="text-sm font-medium tracking-wide">VIRTUAL CARD</span>
+                  {wallet.status === EntityStatus.INACTIVE && (
+                    <span className="ml-auto text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full font-bold">INACTIVE</span>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold text-gray-800">{wallet.name}</h3>
+                <p className="text-sm text-gray-500">{wallet.holderName}</p>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 uppercase font-semibold">
+                  {showInactive && archiveEndDate ? `Balance on ${archiveEndDate}` : 'Current Balance'}
+                </div>
+                <div className={`text-2xl font-bold ${wallet.status === EntityStatus.INACTIVE ? 'text-gray-400' : 'text-indigo-600'}`}>
+                  {displayBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-xs text-gray-400 uppercase font-semibold">Current Balance</div>
-              <div className={`text-2xl font-bold ${wallet.status === EntityStatus.INACTIVE ? 'text-gray-400' : 'text-indigo-600'}`}>{wallet.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</div>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {/* Transactions Table */}
