@@ -186,19 +186,45 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
           await client.query('UPDATE wallets SET balance = balance + $1 WHERE id = $2', [finalAmount, finalToWalletId]);
         }
 
+        // 6. SYNC Logic: Update Subscription Last Payment Date
+        if (finalSubId) {
+             await client.query(`
+                UPDATE subscriptions
+                SET last_payment_date = (
+          SELECT MAX(date)
+                    FROM transactions
+                    WHERE subscription_id = $1
+                    AND type = 'SUBSCRIPTION_PAYMENT'
+        )
+                WHERE id = $1
+          `, [finalSubId]);
+        }
+        if (oldTx.subscription_id && oldTx.subscription_id !== finalSubId) {
+            await client.query(`
+                UPDATE subscriptions
+                SET last_payment_date = (
+          SELECT MAX(date)
+                    FROM transactions
+                    WHERE subscription_id = $1
+                    AND type = 'SUBSCRIPTION_PAYMENT'
+                )
+                WHERE id = $1
+  `, [oldTx.subscription_id]);
+        }
+
         await client.query('COMMIT');
 
         // Return updated
         const updatedTx = await client.query(`
-          SELECT 
-            id, user_id, date, amount, type, description,
-          from_wallet_id as "fromWalletId",
-          to_wallet_id as "toWalletId",
-          subscription_id as "subscriptionId",
-          vat_amount as "vatAmount",
-          created_at
+SELECT
+id, user_id, date, amount, type, description,
+  from_wallet_id as "fromWalletId",
+  to_wallet_id as "toWalletId",
+  subscription_id as "subscriptionId",
+  vat_amount as "vatAmount",
+  created_at
           FROM transactions WHERE id = $1
-          `, [id]);
+  `, [id]);
         return res.status(200).json(updatedTx.rows[0]);
 
       } catch (e: any) {
@@ -237,6 +263,20 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
         }
 
         await client.query('DELETE FROM transactions WHERE id = $1', [id]);
+
+        // SYNC Logic
+        if (tx.subscription_id) {
+            await client.query(`
+                UPDATE subscriptions
+                SET last_payment_date = (
+  SELECT MAX(date)
+                    FROM transactions
+                    WHERE subscription_id = $1
+                    AND type = 'SUBSCRIPTION_PAYMENT'
+                )
+                WHERE id = $1
+  `, [tx.subscription_id]);
+        }
 
         await client.query('COMMIT');
         return res.status(200).json({ success: true });
