@@ -17,6 +17,7 @@ import {
 import { LayoutDashboard, Wallet as WalletIcon, List, PieChart, BookOpen, FileText, Settings, LogOut, LayoutGrid, Archive, Loader2 } from 'lucide-react';
 import api, { clearToken } from "./services/api";
 import { SettingsModal } from "./components/SettingsModal";
+import { loadState, saveState, KEYS } from "./services/persistence";
 
 const INITIAL_STATE: AppState = {
   wallets: [],
@@ -49,7 +50,11 @@ function AppContent() {
 
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "wallets" | "subscriptions" | "departments" | "qoyod" | "ocr" | "inactive_cards"
-  >("dashboard");
+  >(() => loadState(KEYS.ACTIVE_TAB, "dashboard"));
+
+  useEffect(() => {
+    saveState(KEYS.ACTIVE_TAB, activeTab);
+  }, [activeTab]);
 
   const checkAuth = async () => {
     const token = localStorage.getItem("subtracker_token");

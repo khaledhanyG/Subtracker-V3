@@ -1,7 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppState, Subscription, WalletType, BillingCycle, AllocationType, DepartmentSplit, AccountSplit, TransactionType, EntityStatus, Transaction } from '../types';
-import { Plus, AlertTriangle, Search, Trash2, Receipt, Users, ArrowRight, History, Edit2, StickyNote, CreditCard, Save, X, FileText, Undo2, Coins } from 'lucide-react';
+import { Plus, Edit2, Trash2, Calendar, CreditCard, Search, ArrowRight, X, AlertTriangle, Users, FileText, Download, Filter, Receipt, History, Coins, StickyNote, Undo2, Save } from 'lucide-react';
+import { loadState, saveState, KEYS } from '../services/persistence';
+
+type ViewMode = 'LIST' | 'ADD' | 'PAY' | 'REFUND' | 'HISTORY';
 
 interface SubscriptionsProps {
   state: AppState;
@@ -15,7 +18,11 @@ interface SubscriptionsProps {
 }
 
 export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscription, onDeleteSubscription, onRecordPayment, onUpdateSubscription, onEditTransaction, onDeleteTransaction, onRecordRefund }) => {
-  const [viewMode, setViewMode] = useState<'LIST' | 'ADD' | 'PAY' | 'REFUND' | 'HISTORY'>('LIST');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => loadState(KEYS.SUB_VIEW_MODE, 'LIST'));
+
+  useEffect(() => {
+    saveState(KEYS.SUB_VIEW_MODE, viewMode);
+  }, [viewMode]);
   const [searchTerm, setSearchTerm] = useState('');
   const [nameError, setNameError] = useState('');
 
@@ -620,7 +627,6 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
                         </div>
                       ))}
                     </div>
-
                     {/* Credit Side */}
                     <div className="space-y-2 pt-4">
                       <div className="font-bold text-gray-500 text-sm mb-1 border-b w-fit">الى المذكورين:</div>
