@@ -95,14 +95,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
     groups['SHARED'] = [];
 
     state.subscriptions.forEach(sub => {
-      if (sub.departments.length > 1) {
-        groups['SHARED'].push(sub);
-      } else if (sub.departments.length === 1) {
-        const deptId = sub.departments[0].departmentId;
-        if (groups[deptId]) {
-          groups[deptId].push(sub);
-        } else {
-          // Fallback if dept deleted
+      // Add to ALL assigned departments
+      if (sub.departments.length > 0) {
+        sub.departments.forEach(d => {
+          if (groups[d.departmentId]) {
+            groups[d.departmentId].push(sub);
+          }
+        });
+        // If shared, also keep in SHARED group for reference (or strictly shared view)
+        if (sub.departments.length > 1) {
           groups['SHARED'].push(sub);
         }
       } else {
@@ -197,26 +198,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
     window.print();
   };
 
-  const renderCompactCard = (sub: Subscription, isShared = false) => {
+  const renderCompactCard = (sub: Subscription, isSharedView = false, currentDeptId?: string) => {
     const totalPaid = getSubTotalPaid(sub.id);
+    let myShare = totalPaid;
+    let isSplit = false;
+
+    // Calculate My Share if inside a specific department view and it's a shared sub
+    if (currentDeptId && sub.departments.length > 1 && !isSharedView) {
+      isSplit = true;
+      const deptAlloc = sub.departments.find(d => d.departmentId === currentDeptId);
+      if (deptAlloc) {
+        if (sub.allocationType === AllocationType.EQUAL) {
+          myShare = totalPaid / sub.departments.length;
+        } else if (sub.allocationType === AllocationType.PERCENTAGE && deptAlloc.percentage) {
+          myShare = totalPaid * (deptAlloc.percentage / 100);
+        }
+      }
+    }
+
     return (
       <div key={sub.id} className={`px-3 py-2 rounded border border-gray-100 hover:shadow-sm transition-shadow flex items-center justify-between gap-2 ${sub.status === EntityStatus.INACTIVE ? 'bg-orange-50' : 'bg-white'}`}>
         <div className="flex-1 min-w-0 truncate font-medium text-sm text-gray-800" title={sub.name}>
           {sub.name}
+          {isSplit && <span className="ml-2 text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full border border-blue-100">Shared</span>}
         </div>
 
         <div className="flex flex-col items-end">
-          <div className="text-[10px] text-gray-400 uppercase tracking-tighter">Total Paid</div>
+          <div className="text-[10px] text-gray-400 uppercase tracking-tighter">{isSplit ? 'My Share' : 'Total Paid'}</div>
           <div className="text-xs font-semibold text-gray-600 whitespace-nowrap">
-            {totalPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
+            {myShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR
           </div>
+          {isSplit && (
+            <div className="text-[9px] text-gray-400 whitespace-nowrap">Total: {totalPaid.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
+          )}
         </div>
 
         <div className="flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap">
           <Users size={10} /> {sub.userCount}
         </div>
 
-        {isShared && (
+        {(isSharedView || isSplit) && (
           <div className="flex -space-x-1">
             {sub.departments.map((s, i) => {
               const d = state.departments.find(dept => dept.id === s.departmentId);
@@ -426,7 +447,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
                       <div className="text-center py-8 text-gray-400 text-sm italic">No subscriptions found for this department.</div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {subs.map(sub => renderCompactCard(sub, isShared))}
+                        {subs.map(sub => renderCompactCard(sub, isShared, dept.id))}
                       </div>
                     )}
                   </div>
