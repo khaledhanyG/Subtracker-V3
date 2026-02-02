@@ -1101,27 +1101,21 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
             {/* Accounting Entry Button */}
             {filterDateStart && (
               <button
-                onClick={() => setShowAccountingModal(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
-              >
-                <FileText size={16} /> تسجيل القيد
               </button>
-            )}
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-600 font-medium">
+          {/* Log Table */}
+          <div className="overflow-auto max-h-[600px]">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-100 text-xs font-bold text-gray-500 sticky top-0 z-10 shadow-sm">
                 <tr>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Type</th>
-                  <th className="px-6 py-3">Service Name</th>
-                  <th className="px-6 py-3">Paid From / Refund To</th>
-                  <th className="px-6 py-3 text-right">Amount (SAR)</th>
-                  <th className="px-6 py-3 text-center">Action</th>
+                  <th className="px-6 py-3 bg-gray-100">Date</th>
+                  <th className="px-6 py-3 bg-gray-100">Type</th>
+                  <th className="px-6 py-3 bg-gray-100">Service Name</th>
+                  <th className="px-6 py-3 bg-gray-100">Paid From / Refund To</th>
+                  <th className="px-6 py-3 bg-gray-100 text-right">Amount (SAR)</th>
+                  <th className="px-6 py-3 bg-gray-100 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="text-sm divide-y divide-gray-100">
                 {paymentHistory.length === 0 ? (
                   <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-400">No payments recorded in this period.</td></tr>
                 ) : (

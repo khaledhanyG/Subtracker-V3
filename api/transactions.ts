@@ -265,7 +265,6 @@ id, user_id, date, amount, type, description,
         await client.query('DELETE FROM transactions WHERE id = $1', [id]);
 
         // SYNC Logic
-        // SYNC Logic
         if (tx.subscription_id) {
             await client.query(`
                 UPDATE subscriptions
