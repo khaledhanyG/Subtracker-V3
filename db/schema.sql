@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- USERS TABLE
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY, -- Semantic ID: id_<email>
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   name TEXT NOT NULL,
@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- WALLETS TABLE
 CREATE TABLE IF NOT EXISTS wallets (
-  id TEXT PRIMARY KEY, -- Semantic ID: id_<name>
-  user_id TEXT NOT NULL REFERENCES users(id),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   type TEXT NOT NULL, -- 'MAIN' or 'EMPLOYEE'
   balance DECIMAL(15, 2) DEFAULT 0,
@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS wallets (
 
 -- DEPARTMENTS TABLE
 CREATE TABLE IF NOT EXISTS departments (
-  id TEXT PRIMARY KEY, -- Semantic ID: id_<name>
-  user_id TEXT NOT NULL REFERENCES users(id),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   color TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS departments (
 
 -- ACCOUNTS TABLE
 CREATE TABLE IF NOT EXISTS accounts (
-  id TEXT PRIMARY KEY, -- Semantic ID: id_<name>
-  user_id TEXT NOT NULL REFERENCES users(id),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   code TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 -- SUBSCRIPTIONS TABLE
 CREATE TABLE IF NOT EXISTS subscriptions (
-  id TEXT PRIMARY KEY, -- Semantic ID: id_<name>
-  user_id TEXT NOT NULL REFERENCES users(id),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id),
   name TEXT NOT NULL,
   base_amount DECIMAL(15, 2) NOT NULL,
   billing_cycle TEXT NOT NULL,
@@ -69,15 +69,15 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- TRANSACTIONS TABLE
 CREATE TABLE IF NOT EXISTS transactions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id TEXT NOT NULL REFERENCES users(id), -- User ID was already TEXT from previous migrations
+  user_id UUID NOT NULL REFERENCES users(id),
   date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   amount DECIMAL(15, 2) NOT NULL,
   type TEXT NOT NULL, -- 'DEPOSIT_FROM_BANK', 'INTERNAL_TRANSFER', 'SUBSCRIPTION_PAYMENT', 'REFUND'
   
-  from_wallet_id TEXT REFERENCES wallets(id), -- Wallet ID was already TEXT
-  to_wallet_id TEXT REFERENCES wallets(id),
+  from_wallet_id UUID REFERENCES wallets(id),
+  to_wallet_id UUID REFERENCES wallets(id),
   
-  subscription_id TEXT REFERENCES subscriptions(id),
+  subscription_id UUID REFERENCES subscriptions(id),
   
   description TEXT,
   vat_amount DECIMAL(15, 2),
