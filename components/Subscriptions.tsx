@@ -1101,7 +1101,13 @@ export const Subscriptions: React.FC<SubscriptionsProps> = ({ state, onAddSubscr
             {/* Accounting Entry Button */}
             {filterDateStart && (
               <button
+                onClick={() => setShowAccountingModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+              >
+                <FileText size={16} /> Record Entry
               </button>
+            )}
+          </div>
           {/* Log Table */}
           <div className="overflow-auto max-h-[600px]">
             <table className="w-full text-left border-collapse">
