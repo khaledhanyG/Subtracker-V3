@@ -21,25 +21,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
     setExpandedDepts(newSet);
   };
 
-  // Calculate Total Monthly Spend (normalized)
-  const totalMonthlySpend = state.subscriptions.reduce((acc, sub) => {
-    let amount = sub.baseAmount;
-    if (sub.billingCycle === 'YEARLY') amount = sub.baseAmount / 12;
-    if (sub.billingCycle === 'DAILY') amount = sub.baseAmount * 30;
-    if (sub.billingCycle === 'WEEKLY') amount = sub.baseAmount * 4.3;
-    return acc + amount;
-  }, 0);
+  // Calculate "Due" (Overdue Subscriptions)
+  const overdueCount = state.subscriptions.filter(sub => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const renewalDate = new Date(sub.nextRenewalDate);
+    return renewalDate < today;
+  }).length;
+
+  // Calculate "Renewing Soon" (Future Renewals >= Today)
+  const upcomingRenewalsCount = state.subscriptions.filter(sub => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const renewalDate = new Date(sub.nextRenewalDate);
+    return renewalDate >= today;
+  }).length;
 
   const employeeWallets = state.wallets.filter(w => w.type === WalletType.EMPLOYEE);
   const totalAvailableCash = state.wallets.reduce((acc, w) => acc + w.balance, 0);
-
-  const upcomingRenewals = state.subscriptions.filter(sub => {
-    const today = new Date();
-    const endDate = new Date(sub.nextRenewalDate);
-    const diffTime = endDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 14;
-  });
 
   // Complex Department Spend Calculation taking Splits into account
   const deptSpendMap = new Map<string, number>();
@@ -246,11 +245,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Est. Monthly Spend</p>
-              <h3 className="text-2xl font-bold text-gray-800">{totalMonthlySpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} SAR</h3>
+              <p className="text-sm text-gray-500 font-medium">Due (Overdue)</p>
+              <h3 className="text-2xl font-bold text-gray-800">{overdueCount}</h3>
             </div>
-            <div className="p-3 bg-blue-50 rounded-full text-blue-600">
-              <DollarSign size={24} />
+            <div className="p-3 bg-red-50 rounded-full text-red-600">
+              <AlertCircle size={24} />
             </div>
           </div>
         </div>
@@ -258,8 +257,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Renewing Soon (14 Days)</p>
-              <h3 className="text-2xl font-bold text-orange-600">{upcomingRenewals.length}</h3>
+              <p className="text-sm text-gray-500 font-medium">Renewing Soon</p>
+              <h3 className="text-2xl font-bold text-orange-600">{upcomingRenewalsCount}</h3>
             </div>
             <div className="p-3 bg-orange-50 rounded-full text-orange-600">
               <AlertCircle size={24} />
