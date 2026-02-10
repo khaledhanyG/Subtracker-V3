@@ -262,7 +262,10 @@ function AppContent() {
       loadData();
     } catch (e) {
       console.error(e);
-      alert("Failed to add subscription");
+      const err: any = e;
+      let msg = err.response?.data?.error || err.response?.data || err.message || "Failed to add subscription";
+      if (typeof msg === 'object') msg = JSON.stringify(msg);
+      alert(`Error: ${msg}`);
     }
   };
 
