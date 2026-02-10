@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { query } from '../db/index.js';
+import { randomUUID } from 'crypto';
 import { authenticated } from '../lib/auth.js';
 
 const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
@@ -13,13 +14,16 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
         startDate, nextRenewalDate
       } = req.body;
 
+      // Ensure we provide an id in case the DB default UUID function isn't available
+      const id = randomUUID();
+
       // Note: mapping camelCase to snake_case for DB
       const result = await query(
         `INSERT INTO subscriptions (
-          user_id, name, base_amount, billing_cycle, user_count, notes, status,
+          id, user_id, name, base_amount, billing_cycle, user_count, notes, status,
           allocation_type, departments, account_allocation_type, accounts,
           start_date, next_renewal_date
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
         RETURNING 
           id, user_id, name, 
           base_amount as "baseAmount", 
@@ -36,7 +40,7 @@ const handler = async (req: VercelRequest, res: VercelResponse, user: any) => {
           last_payment_amount as "lastPaymentAmount",
           created_at`,
         [
-          userId, name, baseAmount, billingCycle, userCount, notes, status,
+          id, userId, name, baseAmount, billingCycle, userCount, notes, status,
           allocationType, JSON.stringify(departments), accountAllocationType, JSON.stringify(accounts),
           startDate, nextRenewalDate
         ]
