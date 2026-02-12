@@ -90,6 +90,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
   // Group Subscriptions by Department for the Board View
   const getSubscriptionGroups = () => {
     const groups: Record<string, Subscription[]> = {};
+    const sortSubs = (a: Subscription, b: Subscription) => {
+      const aInactive = a.status === EntityStatus.INACTIVE ? 1 : 0;
+      const bInactive = b.status === EntityStatus.INACTIVE ? 1 : 0;
+      if (aInactive !== bInactive) return aInactive - bInactive;
+      return a.name.localeCompare(b.name);
+    };
     // Initialize for all departments
     state.departments.forEach(d => groups[d.id] = []);
     groups['SHARED'] = [];
@@ -111,6 +117,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ state }) => {
         groups['SHARED'].push(sub);
       }
     });
+
+    Object.values(groups).forEach(list => list.sort(sortSubs));
 
     return groups;
   };
